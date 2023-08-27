@@ -1,0 +1,21 @@
+
+                            < M A T L A B (R) >
+                  Copyright 1984-2018 The MathWorks, Inc.
+                   R2018a (9.4.0.813654) 64-bit (glnxa64)
+                             February 23, 2018
+
+ 
+To get started, type one of these: helpwin, helpdesk, or demo.
+For product information, visit www.mathworks.com.
+ 
+
+working on dim 1 of 10Error: MATLAB:badsubscript / Index in position 5 is invalid. Array indices must be positive integers or logical values.
+
+ans = 
+
+  struct with fields:
+
+    file: '/mnt/cup/labs/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/GithubRepo/Widefield_Imaging_Analysis/CommunicationSubspace/CompareSubspaceUniformity.m'
+    name: 'CompareSubspaceUniformity'
+    line: 71
+

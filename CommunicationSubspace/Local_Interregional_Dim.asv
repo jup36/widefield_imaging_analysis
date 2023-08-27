@@ -1,0 +1,126 @@
+function Local_Interregional_Dim(cur_rec,cur_motif,cur_area, tempval,normtype)
+
+%Add paths
+if ispc
+    addpath(genpath('Z:\Rodent Data\Wide Field Microscopy\fpCNMF'));
+    addpath(genpath('Z:\Projects\Cortical Dynamics\Cortical Neuropixel Widefield Dynamics\GithubRepo\Widefield_Imaging_Analysis'));
+    addpath(genpath('Z:\Projects\Cortical Dynamics\Cortical Neuropixel Widefield Dynamics\GithubRepo\GenUtils'));
+    addpath(genpath('Z:\Projects\Cortical Dynamics\Cortical Neuropixel Widefield Dynamics\GithubRepo\Ephys'));
+else
+    addpath(genpath('/jukebox/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
+    addpath(genpath('/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/GithubRepo/Widefield_Imaging_Analysis'));
+    addpath(genpath('/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/GithubRepo/GenUtils'));
+    addpath(genpath('/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/GithubRepo/Ephys'));
+end
+
+%load data
+data = LoadSubspaceData('in_grouped');
+
+%set params: 
+if nargin <4; tempval = 0.8; end
+if nargin <5; normtype = 'mean'; end
+
+%%
+all_areas = data{1}(1).area_label;
+
+n_subsample = 75; 
+
+
+x_dim = NaN(1,n_subsample);
+x_dim_local = NaN(1,n_subsample);
+curve_dim = NaN(n_subsample,100); %take more dims then expected
+curve_dim_local = NaN(n_subsample,100);
+num_neu = NaN(1,n_subsample);
+
+idx = strcmp(data{cur_rec}(cur_motif).area_label,all_areas{cur_area});  
+
+%get your source population (randomly selected)
+fr_loc = cat(1,data{cur_rec}(cur_motif).area_val{idx==1}); 
+fr_loc = normalizeToBaseline(fr_loc,1:2,normtype);
+fr_loc = fr_loc(:,3:end,:);                        
+nn = floor(size(fr_loc,1)/2); %get the size of the local pop
+
+%grab your larger target population                                                
+fr = cat(1,data{cur_rec}(cur_motif).area_val{idx==0}); 
+fr = normalizeToBaseline(fr,1:2,normtype); 
+%subsample the original population                        
+for cur_subsample = 1:n_subsample
+    
+    %randomly split local population
+%     rng(cur_subsample);
+%     neuidx = [zeros(1,nn),ones(1,nn)];
+%     neuidx = neuidx(randperm(numel(neuidx))); 
+    %split 'local' activity into two functional populations (as an extreme)
+%     neuidx = kmeans(corr(reshape(fr_loc,size(fr_loc,1),size(fr_loc,2)*size(fr_loc,3))'),2,'distance','correlation')-1;
+    %split local population into two groups based on position along probe
+    neuidx = [zeros(1,nn),ones(1,nn)];
+    rng(cur_subsample);
+    src = fr_loc(neuidx==1,:,:);
+    trg = fr_loc(neuidx==0,:,:);    
+
+    %split trials into random halves
+    tidx = randperm(size(fr_loc,3),floor(size(fr_loc,3)/2));    
+    t = ones(size(fr_loc,2),size(fr_loc,3));
+    t(:,tidx)=0;
+    t = t(:);
+
+    %get your distribution of the combined populations
+    full_dist = max(nanmean(cat(1,fr(:,3:end,:),trg),[2,3]));
+    [trgdist,edges] = discretize(nanmean(trg,[2,3]),linspace(0,full_dist,5));                       
+
+    %discretize the larger population
+    [intdisp] = discretize(nanmean(fr(:,3:end,:),[2,3]),edges);
+
+    %build your interregional target population by
+    %grabbing random set that matches the distribution
+    %of trgdist
+    intregional = NaN(size(trg));
+    for cur_bin = 1:4                                                                      
+        tempidx = find(intdisp == cur_bin);
+        targidx = find(trgdist == cur_bin);
+        if numel(targidx)>numel(tempidx) %there is a VERY edge case where one or two neurons more in the local target pop can outside the distribution of the target pop. In that case, drop those neurons. 
+            trg(trgdist==cur_bin,:,:)=[];
+            intregional(trgdist==cur_bin,:,:)=[];
+            trgdist(trgdist==cur_bin)=[];            
+        else
+            tempidx = tempidx(randperm(numel(tempidx),sum(trgdist==cur_bin))); 
+            intregional(trgdist==cur_bin,:,:) = fr(tempidx,3:end,:);
+        end
+    end                    
+        
+    if ~isempty(tempval) %tempval here is the threshold to use
+        [ndim,d] = LocalDimRRR(src,intregional,tempval);
+        [ndim_local,d_loc] = LocalDimRRR(src,trg,tempval);  
+        [ndim,d] = SVCA_V2(src,intregional,t,npc,cutoff,tpoint)
+    else
+        [ndim,d] = LocalDimRRR(src,intregional);
+        [ndim_local,d_loc] = LocalDimRRR(src,trg);
+    end    
+   
+    x_dim(1,cur_subsample) = ndim;  
+    x_dim_local(1,cur_subsample) = ndim_local; 
+    curve_dim(cur_subsample,1:numel(d)) = d; 
+    curve_dim_local(cur_subsample,1:numel(d)) = d_loc; 
+    num_neu(1,cur_subsample) = size(trg,1);
+end
+fprintf('\n %d %d %d...',cur_rec, cur_motif, cur_area);
+
+
+%save off the data
+if ispc
+%    savedir = 'Z:\Projects\Cortical Dynamics\Cortical Neuropixel Widefield Dynamics\Analysis\Local_Interregional_Dimensionality\';
+   savedir = 'Z:\Projects\Cortical Dynamics\Cortical Neuropixel Widefield Dynamics\Analysis\Local_Interregional_Dimensionality_Split\';
+else
+%    savedir = '/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/Analysis/Local_Interregional_Dimensionality/';
+   savedir = '/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/Analysis/Local_Interregional_Dimensionality_Split/'; 
+end
+
+save([savedir,sprintf('rec%d_motif%d_area%d_thresh%g_norm%s.mat',cur_rec,cur_motif,cur_area,tempval,normtype)],'cur_area','cur_rec','cur_motif','tempval','normtype','n_subsample','x_dim','x_dim_local','curve_dim','curve_dim_local','num_neu');
+fprintf('\ndone')
+
+end %function end
+
+
+
+
+

@@ -1,0 +1,19 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 6
+	 working on imaging data for file 2 of 6
+	 working on imaging data for file 3 of 6
+	 working on imaging data for file 4 of 6
+	 working on imaging data for file 5 of 6
+	 working on imaging data for file 6 of 6
+	 Comparing within rec/mouse across sites
+	 working on ephys data for file 1 of 6
+	 working on ephys data for file 2 of 6
+	 working on ephys data for file 3 of 6
+	 working on ephys data for file 4 of 6
+	 working on ephys data for file 5 of 6
+	 working on ephys data for file 6 of 6
+	 training models probe 1 of 4 rec 1 of 6
+	 glm
+	 feedforwardslurmstepd: error: *** JOB 24711750 ON spock7-c0-12 CANCELLED AT 2021-12-15T21:21:16 ***

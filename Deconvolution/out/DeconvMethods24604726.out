@@ -1,0 +1,31 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 1
+	 Comparing within rec/mouse across sites
+	 working on ephys data for file 1 of 1
+	 training models probe 1 of 4 rec 1 of 1
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 1 of 1
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 1 of 1
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 1 of 1
+	 glm
+	 feedforward	
+ working on comparison 1 of 4
+addGLMint 0
+addGLMint 0	
+ working on comparison 2 of 4
+addGLMint 0
+addGLMint 0	
+ working on comparison 3 of 4
+addGLMint 0
+addGLMint 0	
+ working on comparison 4 of 4
+addGLMint 0
+addGLMint 0
+	saving

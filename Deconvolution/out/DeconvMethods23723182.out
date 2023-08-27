@@ -1,0 +1,31 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 6
+	 working on imaging data for file 2 of 6
+	 working on imaging data for file 3 of 6
+	 working on imaging data for file 4 of 6
+	 working on imaging data for file 5 of 6
+	 working on imaging data for file 6 of 6
+	 training across sites within animals. Compare on train data
+	 working on ephys data for file 1 of 6
+	 working on ephys data for file 2 of 6
+	 working on ephys data for file 3 of 6
+	 working on ephys data for file 4 of 6
+	 working on ephys data for file 5 of 6
+	 working on ephys data for file 6 of 6
+	 training models probe 1 of 1 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 1 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 1 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 1 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 1 rec 5 of 6
+	 glm
+	 feedforward

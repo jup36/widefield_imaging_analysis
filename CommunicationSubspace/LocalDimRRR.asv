@@ -1,0 +1,90 @@
+function [ndim,d] = LocalDimRRR(src,trg,thresh)
+%Camden M. - timeless
+%estimates local dimensionality 
+%splits local neural population into two spatially seperate
+%populations and xval predicts activity in each and returns the #dim
+
+%ToDo: 
+%camden make sure not doing too mang remeaning of stuff. 
+%confirm that they are organized by depth
+
+if nargin<2; thresh=0.8; end
+
+
+
+
+[cvl_rrr,cvl_ridge, x, y] = briefRRR(src,trg); %this is just the local function below. Follows all the other RRR. 
+
+d = nanmean(1-cvl_rrr)/nanmean(bestLambda(cvl_ridge,0));
+
+% %Gutcheck within/between corr
+% rho_within = corr(x,x);
+% rho_within(1:1+size(x,1):end)=NaN;
+% rho_across = corr(x,y);
+% rho_across(1:1+size(y,1):end)=NaN;
+% 
+% %visualized
+% figure; hold on; 
+% histogram(rho_within)
+% histogram(rho_across)
+% [~,p]=ttest(rho_within(:),rho_across(:));
+% % fp.FigureSizing(gcf,[3 2 4.5 4.5],[10 10 10 10])
+
+ndim = find(d>=thresh,1,'first');
+
+% %pairwise correlation between neurons
+% rho_across = corr(x,y);
+% 
+% rho_within = corr(x,x);
+% rho_within(1:1+size(y,1):end)=NaN;
+
+
+
+end
+
+function [cvl_rrr, cvl_ridge,x, y] = briefRRR(x,y)
+
+%subtract the psth
+x = x-nanmean(x,3);
+y = y-nanmean(y,3);
+
+%concatentate across trials 
+x = reshape(x,[size(x,1),size(x,2)*size(x,3)])';
+y = reshape(y,[size(y,1),size(y,2)*size(y,3)])';
+
+% Number of cross validation folds.
+cvNumFolds = 10;
+lossMeasure = 'NSE'; % NSE stands for Normalized Squared Error
+cvOptions = statset('crossval'); % Initialize default options for cross-validation.
+numDimsUsedForPrediction = 1:min(30,size(x,2)); %prevent from going over num dim with small num neurons
+
+%% Full model | Ridge regression
+rng('default')
+dMaxShrink = .5:.01:1;
+lambda = GetRidgeLambda(dMaxShrink, x,'scale',false);
+
+cvFun = @(Ytrain, Xtrain, Ytest, Xtest) RegressFitAndPredict...
+	(@RidgeRegress, Ytrain, Xtrain, Ytest, Xtest, lambda, ...
+	'LossMeasure', lossMeasure,'scale',false); 
+
+% Cross-validation routine.
+cvl_ridge = crossval(cvFun, y, x, ...
+	  'KFold', cvNumFolds, ...
+	'Options', cvOptions);
+[~,idx] = bestLambda(cvl_ridge);
+%% Reduced Rank Regression XVal
+rng('default')
+d = 1:min(numDimsUsedForPrediction(end),size(y,2));
+cvFun = @(Ytrain, Xtrain, Ytest, Xtest) RegressFitAndPredict...
+	(@ReducedRankRegress, Ytrain, Xtrain, Ytest, Xtest, ...
+	d, 'LossMeasure', lossMeasure,'scale',false,'RIDGEINIT',lambda(idx));
+
+% Cross-validation routine.
+cvl_rrr = crossval(cvFun, y, x, ...
+	  'KFold', cvNumFolds, ...
+	'Options', cvOptions);
+end
+
+
+
+

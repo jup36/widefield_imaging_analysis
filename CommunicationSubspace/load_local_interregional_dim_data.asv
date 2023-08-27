@@ -1,0 +1,65 @@
+function [intreg, local_dim, intreg_curve,local_curve,intreg_auc,local_auc] = load_local_interregional_dim_data(method,thresh,normtype)
+if nargin <1; method = 1; end %how to average the dimesnions across subsamples. def 1 = mean
+if nargin <2; thresh = 0.8; end
+if nargin <3; normtype = 'mean'; end
+
+if ispc
+    folder = 'Z:\Projects\Cortical Dynamics\Cortical Neuropixel Widefield Dynamics\Analysis\Local_Interregional_Dimensionality\';
+else
+    folder = '/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel Widefield Dynamics/Analysis/Local_Interregional_Dimensionality/';
+end
+
+intreg = NaN(6,14,8); 
+local_dim = NaN(6,14,8); 
+intreg_auc = NaN(6,14,8); 
+local_auc = NaN(6,14,8); 
+intreg_curve = NaN(6,14,8,100); 
+local_curve = NaN(6,14,8,100); 
+
+%load it into a nice lil' package 
+for cur_rec = 1:6
+    for cur_motif = 1:14
+        for cur_area = 1:8
+            if cur_rec = 3 &%missing areas on some recordings
+            fn = [folder,sprintf('rec%d_motif%d_area%d_thresh%g_norm%s.mat',cur_rec,cur_motif,cur_area,thresh,normtype)];
+            x = load(fn,'x_dim','x_dim_local','curve_dim','curve_dim_local','cur_rec','cur_motif','cur_area','n_subsample','num_neu');
+            if method==1 %mean
+                intreg(cur_rec,cur_motif,cur_area) = nanmean(x.x_dim);
+                local_dim(cur_rec,cur_motif,cur_area) = nanmean(x.x_dim_local);
+                intreg_curve(cur_rec,cur_motif,cur_area,1:numel(nanmean(x.curve_dim))) = nanmean(x.curve_dim);
+                local_curve(cur_rec,cur_motif,cur_area,1:numel(nanmean(x.curve_dim_local))) = nanmean(x.curve_dim_local); 
+            else %median
+                intreg(cur_rec,cur_motif,cur_area) = nanmedian(x.x_dim);
+                local_dim(cur_rec,cur_motif,cur_area) = nanmedian(x.x_dim_local);
+
+                intreg_curve(cur_rec,cur_motif,cur_area,1:numel(nanmedian(x.curve_dim))) = nanmedian(x.curve_dim);
+                local_curve(cur_rec,cur_motif,cur_area,1:numel(nanmedian(x.curve_dim_local))) = nanmedian(x.curve_dim_local);                
+            end
+            intreg_auc(cur_rec,cur_motif,cur_area) = getAUC(x.curve_dim,method);
+            local_auc(cur_rec,cur_motif,cur_area) = getAUC(x.curve_dim_local,method);
+        end
+    end
+end
+
+
+
+end %function end
+
+
+function auc = getAUC(xx,method)
+    if method==1 %mean
+        y = nanmean(xx);
+    else
+        y = nanmedian(xx);
+    end
+    y = [0,y(~isnan(y)),1];
+    auc = trapz(y/numel(y));
+end %subfunction
+
+
+
+
+
+
+
+

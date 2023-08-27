@@ -1,0 +1,53 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 6
+	 working on imaging data for file 2 of 6
+	 working on imaging data for file 3 of 6
+	 working on imaging data for file 4 of 6
+	 working on imaging data for file 5 of 6
+	 working on imaging data for file 6 of 6
+	 Comparing within rec/mouse/site across depths
+	 working on ephys data for file 1 of 6
+	 working on ephys data for file 2 of 6
+	 working on ephys data for file 3 of 6
+	 working on ephys data for file 4 of 6
+	 working on ephys data for file 5 of 6
+	 working on ephys data for file 6 of 6
+	 training models probe 1 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 2 of 6
+	 training models probe 2 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 3 of 6
+	 training models probe 3 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 4 of 6
+	 training models probe 2 of 4 rec 4 of 6
+	 training models probe 3 of 4 rec 4 of 6
+	 glm
+	 feedforwardslurmstepd: error: *** JOB 23727071 ON spock7-c1-13 CANCELLED AT 2021-08-18T09:51:23 ***

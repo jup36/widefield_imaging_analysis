@@ -1,0 +1,283 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 6
+	 working on imaging data for file 2 of 6
+	 working on imaging data for file 3 of 6
+	 working on imaging data for file 4 of 6
+	 working on imaging data for file 5 of 6
+	 working on imaging data for file 6 of 6
+	 Comparing across animal, within sites
+	 working on ephys data for file 1 of 6
+	 working on ephys data for file 2 of 6
+	 working on ephys data for file 3 of 6
+	 working on ephys data for file 4 of 6
+	 working on ephys data for file 5 of 6
+	 working on ephys data for file 6 of 6
+	 training models probe 1 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 6 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 6 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 6 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 6 of 6
+	 glm
+	 feedforward	
+ working on comparison 1 of 96
+addGLMint 0	
+ working on comparison 2 of 96
+addGLMint 0	
+ working on comparison 3 of 96
+addGLMint 0	
+ working on comparison 4 of 96
+addGLMint 0	
+ working on comparison 5 of 96
+addGLMint 0	
+ working on comparison 6 of 96
+addGLMint 0	
+ working on comparison 7 of 96
+addGLMint 0	
+ working on comparison 8 of 96
+addGLMint 0	
+ working on comparison 9 of 96
+addGLMint 0	
+ working on comparison 10 of 96
+addGLMint 0	
+ working on comparison 11 of 96
+addGLMint 0	
+ working on comparison 12 of 96
+addGLMint 0	
+ working on comparison 13 of 96
+addGLMint 0	
+ working on comparison 14 of 96
+addGLMint 0	
+ working on comparison 15 of 96
+addGLMint 0	
+ working on comparison 16 of 96
+addGLMint 0	
+ working on comparison 17 of 96
+addGLMint 0	
+ working on comparison 18 of 96
+addGLMint 0	
+ working on comparison 19 of 96
+addGLMint 0	
+ working on comparison 20 of 96
+addGLMint 0	
+ working on comparison 21 of 96
+addGLMint 0	
+ working on comparison 22 of 96
+addGLMint 0	
+ working on comparison 23 of 96
+addGLMint 0	
+ working on comparison 24 of 96
+addGLMint 0	
+ working on comparison 25 of 96
+addGLMint 0	
+ working on comparison 26 of 96
+addGLMint 0	
+ working on comparison 27 of 96
+addGLMint 0	
+ working on comparison 28 of 96
+addGLMint 0	
+ working on comparison 29 of 96
+addGLMint 0	
+ working on comparison 30 of 96
+addGLMint 0	
+ working on comparison 31 of 96
+addGLMint 0	
+ working on comparison 32 of 96
+addGLMint 0	
+ working on comparison 33 of 96
+addGLMint 0	
+ working on comparison 34 of 96
+addGLMint 0	
+ working on comparison 35 of 96
+addGLMint 0	
+ working on comparison 36 of 96
+addGLMint 0	
+ working on comparison 37 of 96
+addGLMint 0	
+ working on comparison 38 of 96
+addGLMint 0	
+ working on comparison 39 of 96
+addGLMint 0	
+ working on comparison 40 of 96
+addGLMint 0	
+ working on comparison 41 of 96
+addGLMint 0	
+ working on comparison 42 of 96
+addGLMint 0	
+ working on comparison 43 of 96
+addGLMint 0	
+ working on comparison 44 of 96
+addGLMint 0	
+ working on comparison 45 of 96
+addGLMint 0	
+ working on comparison 46 of 96
+addGLMint 0	
+ working on comparison 47 of 96
+addGLMint 0	
+ working on comparison 48 of 96
+addGLMint 0	
+ working on comparison 49 of 96
+addGLMint 0	
+ working on comparison 50 of 96
+addGLMint 0	
+ working on comparison 51 of 96
+addGLMint 0	
+ working on comparison 52 of 96
+addGLMint 0	
+ working on comparison 53 of 96
+addGLMint 0	
+ working on comparison 54 of 96
+addGLMint 0	
+ working on comparison 55 of 96
+addGLMint 0	
+ working on comparison 56 of 96
+addGLMint 0	
+ working on comparison 57 of 96
+addGLMint 0	
+ working on comparison 58 of 96
+addGLMint 0	
+ working on comparison 59 of 96
+addGLMint 0	
+ working on comparison 60 of 96
+addGLMint 0	
+ working on comparison 61 of 96
+addGLMint 0	
+ working on comparison 62 of 96
+addGLMint 0	
+ working on comparison 63 of 96
+addGLMint 0	
+ working on comparison 64 of 96
+addGLMint 0	
+ working on comparison 65 of 96
+addGLMint 0	
+ working on comparison 66 of 96
+addGLMint 0	
+ working on comparison 67 of 96
+addGLMint 0	
+ working on comparison 68 of 96
+addGLMint 0	
+ working on comparison 69 of 96
+addGLMint 0	
+ working on comparison 70 of 96
+addGLMint 0	
+ working on comparison 71 of 96
+addGLMint 0	
+ working on comparison 72 of 96
+addGLMint 0	
+ working on comparison 73 of 96
+addGLMint 0	
+ working on comparison 74 of 96
+addGLMint 0	
+ working on comparison 75 of 96
+addGLMint 0	
+ working on comparison 76 of 96
+addGLMint 0	
+ working on comparison 77 of 96
+addGLMint 0	
+ working on comparison 78 of 96
+addGLMint 0	
+ working on comparison 79 of 96
+addGLMint 0	
+ working on comparison 80 of 96
+addGLMint 0	
+ working on comparison 81 of 96
+addGLMint 0	
+ working on comparison 82 of 96
+addGLMint 0	
+ working on comparison 83 of 96
+addGLMint 0	
+ working on comparison 84 of 96
+addGLMint 0	
+ working on comparison 85 of 96
+addGLMint 0	
+ working on comparison 86 of 96
+addGLMint 0	
+ working on comparison 87 of 96
+addGLMint 0	
+ working on comparison 88 of 96
+addGLMint 0	
+ working on comparison 89 of 96
+addGLMint 0	
+ working on comparison 90 of 96
+addGLMint 0	
+ working on comparison 91 of 96
+addGLMint 0	
+ working on comparison 92 of 96
+addGLMint 0	
+ working on comparison 93 of 96
+addGLMint 0	
+ working on comparison 94 of 96
+addGLMint 0	
+ working on comparison 95 of 96
+addGLMint 0	
+ working on comparison 96 of 96
+addGLMint 0
+	saving[Warning: Variable 'trained_opts' was not saved. For variables larger than 2GB
+use MAT-file version 7.3 or later.] 
+[> In CompareDeconvolutionMethods (line 444)] 

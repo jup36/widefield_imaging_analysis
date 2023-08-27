@@ -1,0 +1,27 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 6
+	 working on imaging data for file 2 of 6
+	 working on imaging data for file 3 of 6
+	 working on imaging data for file 4 of 6
+	 working on imaging data for file 5 of 6
+	 working on imaging data for file 6 of 6
+	 working on ephys data for file 1 of 6
+	 working on ephys data for file 2 of 6
+	 working on ephys data for file 3 of 6
+	 working on ephys data for file 4 of 6
+	 working on ephys data for file 5 of 6
+	 working on ephys data for file 6 of 6
+	 n = 162000
+	 training models probe 1 of 1 rec 1 of 1
+	 glm	
+ working on comparison 1 of 24
+addGLMint 0{Reference to non-existent field 'feedforwardparams'.
+
+Error in Deconvolve_Test (line 39)
+        params = trained_opts.feedforwardparams;
+
+Error in GenerateDeconvolutionGLM (line 107)
+            stats{i} =
+            Deconvolve_Test(dff{test_idx(i,1)}(:,test_idx(i,2)),st{test_idx(i,1)}(:,test_idx(i,2)),'glm',trained_opts{train_idx(i,1)}(train_idx(i,2)));} 

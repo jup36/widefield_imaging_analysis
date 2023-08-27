@@ -1,0 +1,11 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+{Error using load
+Unable to read file '/jukebox/buschman/Projects/Cortical Dynamics/Cortical
+Neuropixel Widefield
+Dynamics/Analysis/Deconvolution/restingstate_processed_fn.mat'. No such file or
+directory.
+
+Error in CompareDeconvolutionMethods (line 14)
+   load('/jukebox/buschman/Projects/Cortical Dynamics/Cortical Neuropixel
+   Widefield
+   Dynamics/Analysis/Deconvolution/restingstate_processed_fn.mat','dff_list_bucket','spike_opts_list_bucket')} 

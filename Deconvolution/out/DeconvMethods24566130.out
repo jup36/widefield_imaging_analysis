@@ -1,0 +1,97 @@
+MATLAB is selecting SOFTWARE OPENGL rendering.
+
+	 Compiling Imaging Data
+	 working on imaging data for file 1 of 6
+	 working on imaging data for file 2 of 6
+	 working on imaging data for file 3 of 6
+	 working on imaging data for file 4 of 6
+	 working on imaging data for file 5 of 6
+	 working on imaging data for file 6 of 6
+	 training within recording. Compare on test data
+	 working on ephys data for file 1 of 6
+	 working on ephys data for file 2 of 6
+	 working on ephys data for file 3 of 6
+	 working on ephys data for file 4 of 6
+	 working on ephys data for file 5 of 6
+	 working on ephys data for file 6 of 6
+	 training models probe 1 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 1 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 2 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 3 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 4 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 5 of 6
+	 glm
+	 feedforward
+	 training models probe 1 of 4 rec 6 of 6
+	 glm
+	 feedforward
+	 training models probe 2 of 4 rec 6 of 6
+	 glm
+	 feedforward
+	 training models probe 3 of 4 rec 6 of 6
+	 glm
+	 feedforward
+	 training models probe 4 of 4 rec 6 of 6
+	 glm
+	 feedforward{Unrecognized function or variable 'testInd'.
+
+Error in CompareDeconvolutionMethods>@(x)x(testInd,:) (line 555)
+        temp_test_rec = cellfun(@(x) x(testInd,:),dff_train,'UniformOutput',0);
+        %get test and flatten across probes
+
+Error in CompareDeconvolutionMethods (line 555)
+        temp_test_rec = cellfun(@(x) x(testInd,:),dff_train,'UniformOutput',0);
+        %get test and flatten across probes
+} 
