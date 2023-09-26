@@ -25,7 +25,13 @@ if opts.mask_vasc %mask vasc
     end
     
     if opts.verbose || opts.manual_mask
-        imshowpair(ref_img,ref_img.*mask);
+        ref_masked = ref_img.*mask; 
+        imshowpair(ref_img,ref_masked);
+        %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/2)])
+        %cmin = min(min(ref_img(:)), min(ref_masked(:))); % Minimum pixel value across both images
+        %cmax = max(max(ref_img(:)), max(ref_masked(:))); % Maximum pixel value across both images
+        %clim([cmin, cmax])
+        
         hold on; 
         scatter(opts.bregma(1),opts.bregma(2),'*');
         title('Cropped Img with Vascmask overlay');
