@@ -21,7 +21,7 @@ gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates
 %% Manual Portion
 %select folders to process and grab the first file from each rec.
 %EXAMPLE DATA: Select 'subfolders' and then select '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA001/DA001_072623/DA001_072623_img'
-[file_list_first_stack,folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif',1, ... % use GrabFiles_sort_trials to sort both files and folders 
+[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif',1, ... % use GrabFiles_sort_trials to sort both files and folders 
     {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/DA003_083023_img'});
 
 %Grab reference images for each. Preload so no delay between loop.
@@ -52,27 +52,35 @@ save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log')
 file_list_preprocessed = cell(1,numel(folder_list_raw));
 
 for cur_fold = 1:numel(folder_list_raw)
-    [file_list_raw,~] = GrabFiles('.tif',0,folder_list_raw(cur_fold));
-    [opts_list,~] = GrabFiles('prepro_log.m',0,folder_list_raw(1)); % use opts from the 1st trial 
-    
+    [file_list_raw,~] = GrabFiles('.tif',0,folder_list_raw(cur_fold)); % note that there's only one file per folder in this experiment 
+    [opts_list,~] = GrabFiles('prepro_log.m',0,folder_list_raw(1)); % use opts from the 1st trial
+
     %Create spock bash script for each file and run it
     job_id = cell(1,numel(file_list_raw));
-    for cur_file = 1:numel(file_list_raw)
-        input_val = {ConvertMacToBucketPath(file_list_raw{cur_file}), ConvertMacToBucketPath(opts_list{1})};
-        script_name = WriteBashScriptMac(sprintf('%d_%d',cur_fold,cur_file),'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"},...
-            'sbatch_time',15,'sbatch_memory',8);  %
-        
-        %Run job
-        response = ssh2_command(s_conn,...
-            ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-            sprintf('sbatch %s',script_name)]); 
-        
-        %get job id
-        job_id{cur_file} = erase(response.command_result{1},'Submitted batch job ');
-        if cur_file ~=numel(file_list_raw)
-            job_id{cur_file} = [job_id{cur_file} ','];
-        end
-    end    
+    % for cur_file = 1:numel(file_list_raw)
+    input_val = {ConvertMacToBucketPath(file_list_raw{1}), ConvertMacToBucketPath(opts_list{1})};
+    script_name = WriteBashScriptMac(sprintf('%d_%d', cur_fold, 1),'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"},...
+        'sbatch_time',15,'sbatch_memory',8);  % bash script to run for preprocessing
+
+    %Run job
+    response = ssh2_command(s_conn,...
+        ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
+        sprintf('sbatch %s',script_name)]);
+
+    %get job id
+    job_id{cur_fold} = erase(response.command_result{1},'Submitted batch job ');
+
+    %Once each folder is done, combine all the stacks and do hemocorrection
+    [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
+    file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
+    script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, 1), ...
+        'Spock_CombineStacksBVcorrect',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'},{"'%s'","'%s'","'%s'"});
+
+    % Run job with dependency
+    response = ssh2_command(s_conn,...
+        ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
+        sprintf('sbatch --dependency=afterok:%s %s',[job_id{:}],script_name)]);    
+
 end
 
 %% Preprocessing. Results in a single hemo corrected, masked recording for each day in the 'preprocessed' folder

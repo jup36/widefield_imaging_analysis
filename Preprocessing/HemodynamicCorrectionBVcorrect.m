@@ -1,4 +1,4 @@
-function [dff, dff_b, dff_v] = HemodynamicCorrection(stack, opts)
+function [dff, dff_b, dff_v] = HemodynamicCorrectionBVcorrect(stack, opts)
     %Camden MacDowell 2019
     %Followed allen et al., 2017 neuron and Musall et al., 2019 Nature
     %Neuro subtraction method for hemodynamic correction. 
@@ -17,6 +17,15 @@ function [dff, dff_b, dff_v] = HemodynamicCorrection(stack, opts)
     min_length = cellfun(@(x) size(x,3), {stack_b,stack_v},'UniformOutput',0);
     stack_b = stack_b(:,:,1:min(cell2mat(min_length)));
     stack_v = stack_v(:,:,1:min(cell2mat(min_length)));
+
+    % to ensure correct assignment of blue and violet frames check their mean intensities 
+    if nanmean(stack_b(:)) < nanmean(stack_v(:))
+        stack_b_copy = stack_b; 
+        stack_b = stack_v; 
+        stack_v = stack_b_copy; 
+        clearvars stack_b_copy 
+    end
+
     
     %remove the masked pixels by setting to NaN
     masked_pxls = (stack_b==0);
@@ -30,11 +39,11 @@ function [dff, dff_b, dff_v] = HemodynamicCorrection(stack, opts)
     
     %pixelwise hemodynamic correction   
     [nX,nY,nZ] = size(stack_b);
-    [stack_b, bad_col] = conditionDffMat(stack_b);
+    [stack_b, bad_col] = conditionDffMat(stack_b); % input dim: pixel x pixel x frames, output dim: frames x pixels(excluding bad ones)
     [stack_v, ~] = conditionDffMat(stack_v);
     stack_v_corrected = NaN(size(stack_v));
     for i = 1:size(stack_v_corrected,2)  
-        temp = stack_v(:,i);
+        temp = stack_v(:,i); 
 %         temp(1:5*opts.fps)=nanmean(temp(1:60*opts.fps));
                         
         %smooth with ~450ms gaussian
