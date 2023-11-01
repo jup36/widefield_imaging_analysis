@@ -1,4 +1,4 @@
-function dffPostprocess(filePath)
+function dffPostprocess_Spock(filePath)
 %filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/DA003_083023_img';
 %tbytDat
 %   evtType:
@@ -11,6 +11,10 @@ function dffPostprocess(filePath)
 %           evtOff: 4-s after water delivery
 %           periEvtWin: evtOn-1:evtOff (e.g. 5s)
 %           Note that 5-s peri-reward window was used -1 to 4s relative to reward
+
+if ~ispc
+   addpath(genpath('/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/'));
+end
 
 % load trial-by-trial behavior & task data tbytDat.mat
 parentDir = fileparts(filePath);
@@ -28,20 +32,15 @@ for ff = 1:length(file_list_dff)
     fprintf("finished loading dff file #%d\n", ff)
 end
 
-% file directory for png
-filePathPng = fullfile(parentDir, strcat(header, '_png'));
-if exist(filePathPng, 'dir') == 0
-    mkdir(filePathPng);
-end
-
-refCmosFrameIdx = 1:2700; % there must be 2700 frames recorded
+refCmosFrameIdx = 1:2700; % there must be 2700 cmos exposure pulses / frames recorded
 
 % take corresponding frames with for each trial with 2D gaussian filtering
 for tt = 1:length(tbytDat)
     if ~isempty(tbytDat(tt).cmosExp)
         dff = dffC{1, tbytDat(tt).cmosExpTrainI};
-        tbytDat(tt).frameT = tbytDat(tt).cmosExp(1:2:end); % frame time
-        tbytDat(tt).frameI = correctFrameI(refCmosFrameIdx, tbytDat(tt).cmosExpPulsesOfTrain{1}, length(tbytDat(tt).frameT)); % frame index must alternate to match frame
+        tbytDat(tt).frameT = tbytDat(tt).cmosExp(1:2:end); % frame time (needs to alternate due to interleaved violet frames for hemodynamic correction)
+        temp1stFrameI = floor(tbytDat(tt).cmosExpPulsesOfTrain{1}./2); % 1st frame to take in dff (indices must be divided by 2 since dff already taken excluding violet frames) 
+        tbytDat(tt).frameI = temp1stFrameI:temp1stFrameI+length(tbytDat(tt).frameT)-1; 
         tbytDat(tt).dff = dff(:,:,tbytDat(tt).frameI); % aligned dff
         tbytDat(tt).dffsm = applyImgaussfilt(tbytDat(tt).dff);
 
@@ -184,15 +183,6 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
             close(labeledVid);
         end
     end
-
-
-
-
-
-
-
-
-
 
     function correctTimeIdx = correctFrameI(refArray, timeIdx1, numPoints)
         corrArray = 1:0.5:floor(max(refArray)/2);

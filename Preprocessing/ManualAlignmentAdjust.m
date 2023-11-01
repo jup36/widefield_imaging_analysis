@@ -4,7 +4,8 @@ ref_img = double(ref_img);
 %show image
 figure('name','Move rectangle and double-click to crop')
 imagesc(ref_img); colormap gray
-clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/2)])
+clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
+%clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/2)])
 %imcontrast(gca) % interactive adjustment
 
 %Set to correct aspect ratio and shift to ~center of 1080p screen

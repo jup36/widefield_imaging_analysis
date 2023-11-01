@@ -1,4 +1,6 @@
 
+filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823/DA008_101823_img'; 
+
 % Open ssh connection
 username = input(' Spock Username: ', 's');
 password = passcode();
@@ -21,9 +23,8 @@ gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates
 %% Manual Portion
 %select folders to process and grab the first file from each rec.
 %EXAMPLE DATA: Select 'subfolders' and then select '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA001/DA001_072623/DA001_072623_img'
-[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif',1, ... % use GrabFiles_sort_trials to sort both files and folders 
-    {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/DA003_083023_img'});
-
+[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif',1, {filePathImg}); % use GrabFiles_sort_trials to sort both files and folders 
+    
 %Grab reference images for each. Preload so no delay between loop.
 ref_img = GetReferenceImage(file_list_first_stack{1},opts.fixed_image); % use the first frame of the first trial 
 
@@ -80,47 +81,5 @@ for cur_fold = 1:numel(folder_list_raw)
     response = ssh2_command(s_conn,...
         ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
         sprintf('sbatch --dependency=afterok:%s %s',[job_id{:}],script_name)]);    
-
 end
-
-%% Preprocessing. Results in a single hemo corrected, masked recording for each day in the 'preprocessed' folder
-%gather recordings
-cur_fold = 1; % trial #3, 5, 13 has normal signal. 
-file_list_preprocessed = cell(1,numel(folder_list_raw));
-[file_list_raw,~] = GrabFiles('.tif',0,folder_list_raw(cur_fold));
-[opts_list,~] = GrabFiles('prepro_log.m',0,folder_list_raw(1)); % always point to the first folder 
-opts = load(opts_list{1});
-opts = opts.prepro_log;
-[path, fn] = fileparts(file_list_raw{1});
-
-%Process
-stack = PreProcess(file_list_raw{1},opts);
-
-%make Dff %NOTE: METHOD MAY MAKE TRIAL-based recs weird
-%stack_b = stack(:,:,1:2:end);
-%dff = makeDFF(stack_b, opts); 
-
-%basic dff
-stack_b = stack(:,:,1:2:end);  
-avg_proj = nanmean(stack_b(:,:,1:15),3); % baseline average (0.5 sec)
-dff = (double(stack_b)-avg_proj)./avg_proj; 
-
-%examine the data
-temp = reshape(dff,size(dff,1)*size(dff,2),size(dff,3));
-imagesc(temp)
-
-%histrogram
-figure; hold on; 
-histogram(dff(:))
-
-%play our video; 
-close all;
-for i = 1:size(dff,3)
-   imagesc(dff(:,:,i),[-0.03, 0.03]);
-   title(sprintf('frame %d of %d',i,size(dff,3)));
-   pause(0.1)
-end
-
-%if you want to see what the preprocessed data looks like then run
-% InspectPreprocessedData(PreprocessedDataFilepath,'preprocessed')
 

@@ -27,7 +27,7 @@ if opts.mask_vasc %mask vasc
     if opts.verbose || opts.manual_mask
         ref_masked = ref_img.*mask; 
         imshowpair(ref_img,ref_masked);
-        %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/2)])
+        %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
         %cmin = min(min(ref_img(:)), min(ref_masked(:))); % Minimum pixel value across both images
         %cmax = max(max(ref_img(:)), max(ref_masked(:))); % Maximum pixel value across both images
         %clim([cmin, cmax])
@@ -47,12 +47,14 @@ if opts.mask_vasc %mask vasc
                     close all                
                     figure('name','Draw ROI around additional regions to NaN');
                     imshowpair(ref_img,ref_img.*mask);
+                    %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
                     manual_mask = impoly;
                     wait(manual_mask);               
                     manual_mask = manual_mask.createMask();
                     mask(manual_mask)=0; close; 
                     figure('name','Current masked Image')
                     imshowpair(ref_img,ref_img.*mask); 
+                    %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
                case 'No'; break %end dlg
             end
             choice = questdlg(sprintf('Would you like to mask additional regions'),...
@@ -68,12 +70,14 @@ if opts.mask_vasc %mask vasc
                     close all
                     figure('name','Draw ROI around additional regions to NaN');
                     imshowpair(ref_img,ref_img.*mask);
+                    %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
                     manual_mask = impoly;
                     wait(manual_mask);               
                     manual_mask = manual_mask.createMask(); %his is 1 in the desired ROI          
                     mask(manual_mask)=1; close
                     figure('name','Current masked Image')
                     imshowpair(ref_img,ref_img.*mask);
+                    %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
                case 'No'; break
             end
             choice = questdlg(sprintf('Would you like to unmask additional regions'),...
@@ -86,6 +90,7 @@ if opts.mask_vasc %mask vasc
     if opts.verbose || opts.manual_mask
         close all
         imshowpair(ref_img,ref_img.*mask);
+        %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
         hold on; 
         scatter(opts.bregma(1),opts.bregma(2),'*');
         title('FINAL cropped Img with Vascmask overlay');
@@ -103,6 +108,7 @@ if opts.mask_vasc %mask vasc
         if opts.verbose
             close all
             imshowpair(ref_img,ref_img.*mask);
+            %clim([min(ref_img(:)) max(min(ref_img(:)), max(ref_img(:))/4)])
             hold on; 
             scatter(opts.bregma(1),opts.bregma(2),'*');
             title('FINAL cropped Img with masked Brain Overlay');

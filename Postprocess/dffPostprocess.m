@@ -1,5 +1,5 @@
 function dffPostprocess(filePath)
-%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/DA003_083023_img';
+%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_100923/DA008_100923_img';
 %tbytDat
 %   evtType:
 %       1 or 2: visual (common, uncommon)
@@ -28,20 +28,25 @@ for ff = 1:length(file_list_dff)
     fprintf("finished loading dff file #%d\n", ff)
 end
 
-% file directory for png
-filePathPng = fullfile(parentDir, strcat(header, '_png'));
-if exist(filePathPng, 'dir') == 0
-    mkdir(filePathPng);
+% file directory for trials
+filePathTrials = fullfile(parentDir, strcat(header, '_trials'));
+if exist(filePathTrials, 'dir') == 0
+    mkdir(filePathTrials);
 end
 
-refCmosFrameIdx = 1:2700; % there must be 2700 frames recorded
+%refCmosFrameIdx = 1:2700; % there must be 2700 cmos exposure pulses / frames recorded
 
 % take corresponding frames with for each trial with 2D gaussian filtering
 for tt = 1:length(tbytDat)
     if ~isempty(tbytDat(tt).cmosExp)
+        trSubDir = fullfile(filePathTrials, sprintf('block_%d_trial_%d', tbytDat(tt).cmosExpTrainI, tt));
+        if exist(trSubDir, 'dir') ~= 7
+           mkdir(trSubDir);
+        end
         dff = dffC{1, tbytDat(tt).cmosExpTrainI};
-        tbytDat(tt).frameT = tbytDat(tt).cmosExp(1:2:end); % frame time
-        tbytDat(tt).frameI = correctFrameI(refCmosFrameIdx, tbytDat(tt).cmosExpPulsesOfTrain{1}, length(tbytDat(tt).frameT)); % frame index must alternate to match frame
+        tbytDat(tt).frameT = tbytDat(tt).cmosExp(1:2:end); % frame time (needs to alternate due to interleaved violet frames for hemodynamic correction)
+        temp1stFrameI = floor(tbytDat(tt).cmosExpPulsesOfTrain{1}./2); % 1st frame to take in dff (indices must be divided by 2 since dff already taken excluding violet frames)
+        tbytDat(tt).frameI = temp1stFrameI:temp1stFrameI+length(tbytDat(tt).frameT)-1;
         tbytDat(tt).dff = dff(:,:,tbytDat(tt).frameI); % aligned dff
         tbytDat(tt).dffsm = applyImgaussfilt(tbytDat(tt).dff);
 
@@ -58,29 +63,42 @@ for tt = 1:length(tbytDat)
         end
         tbytDat(tt).frameTrel = tbytDat(tt).frameT-tbytDat(tt).evtOn;
         tbytDat(tt).dir = folder_list_dff{tbytDat(tt).cmosExpTrainI};
+        
+        tbytDff =  tbytDat(tt).dff; 
+        tbytDffsm =  tbytDat(tt).dffsm; 
+        save(fullfile(trSubDir, 'tbytDff.mat'), 'tbytDff', 'tbytDffsm')
+    
     end
     fprintf('processed dff of trial#%d\n', tt)
 end
 
 % record frames save in separate folders
-record_dff_frames(tbytDat, filePathPng)
+record_dff_frames(tbytDat, filePathTrials)
 
 % make dff videos
 frameRate = 5;
-make_dff_videos(tbytDat, filePathPng, frameRate)
+make_dff_videos(tbytDat, filePathTrials, frameRate, 37)
 
 % save tbytDat without dffs
 tbytDat = rmfield(tbytDat, {'dff', 'dffsm'});
-save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
+save(fullfile(parentDir, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    function record_dff_frames(tbytDat, filePathPng)
+    function record_dff_frames(tbytDat, filePathTrials, varargin)
         % e.g., dff = tbytDat(21).dffsm
+        %By default this function iterate through all trials and record frames of
+        % each trial as png files. It can also run specific trials designated as varargin.
+        if isempty(varargin)
+            trials = 1:length(tbytDat);
+        else
+            trials = [varargin{1}(:)]';
+        end
+
         %% record frames first
         close all;
-        for t = 1:length(tbytDat) % trial
+        for t = trials % 1:length(tbytDat) % trial
             if ~isempty(tbytDat(t).dffsm)
-                pngSubDir = fullfile(filePathPng, sprintf('block_%d_trial_%d', tbytDat(t).cmosExpTrainI, t));
+                pngSubDir = fullfile(filePathTrials, sprintf('block_%d_trial_%d', tbytDat(t).cmosExpTrainI, t));
 
                 if exist(pngSubDir, 'dir') == 7
 
@@ -95,15 +113,16 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
                         % Set the figure's background to white
                         set(gcf, 'Color', 'w');
 
-                        if ~isempty(tbytDat(t).frameStimI) && tbytDat(t).frameStimI(i) % for visual trials
-                            if tbytDat(t).evtType == 1 % common visual stim (draw 45 degree lines at the upper left corner)
-                                insertgrating45(figHandle, tbytDat(t).dffsm(:, :, i))
-                            elseif tbytDat(t).evtType == 2 % common visual stim (draw 135 degree lines at the upper left corner)
-                                insertgrating135(figHandle, tbytDat(t).dffsm(:, :, i))
+                        if isfield(tbytDat, 'frameStimI')
+                            if ~isempty(tbytDat(t).frameStimI) && tbytDat(t).frameStimI(i) % for visual trials
+                                if tbytDat(t).evtType == 1 % common visual stim (draw 45 degree lines at the upper left corner)
+                                    insertgrating45(figHandle, tbytDat(t).dffsm(:, :, i))
+                                elseif tbytDat(t).evtType == 2 % common visual stim (draw 135 degree lines at the upper left corner)
+                                    insertgrating135(figHandle, tbytDat(t).dffsm(:, :, i))
+                                end
+                                hold off;
                             end
-                            hold off;
                         end
-
                         % Capture the current figure with dots
                         frameLabled = getframe(gca);
                         frameLabled = frameLabled.cdata;
@@ -118,19 +137,21 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
                 end
             end
         end
+
     end
 
-    function make_dff_videos(tbytDat, filePathPng, frameRate)
+
+    function make_dff_videos(tbytDat, filePathTrials, frameRate)
         close all;
-        pngDir = GrabFiles_sort_trials('trial', 0, {filePathPng}); % use GrabFiles_sort_trials to sort both files and folders
+        filePathTrials = GrabFiles_sort_trials('trial', 0, {filePathTrials}); % use GrabFiles_sort_trials to sort both files and folders
 
         % To match the trial number use this!
-        tN = cellfun(@(x) str2double(regexp(x, 'trial_(\d{1,3})', 'tokens', 'once')), pngDir);
-        t = find(tN == 622);
+        %tN = cellfun(@(x) str2double(regexp(x, 'trial_(\d{1,3})', 'tokens', 'once')), filePathTrials);
+        %t = find(tN == 622);
 
-        for t = 1:length(pngDir) % trials
+        for t = 1:length(filePathTrials) % trials
 
-            [~, vidName] = fileparts(pngDir{t});
+            [~, vidName] = fileparts(filePathTrials{t});
 
             % Extract the number after 'trial_'
             matchedNum = regexp(vidName, 'trial_(\d+)', 'tokens');
@@ -140,7 +161,7 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
             frameLickI = tbytDat(trialNum).frameLickI;
             frameWaterI = tbytDat(trialNum).frameWaterI;
 
-            writeDffVid(pngDir{t}, vidName, frameRate, frameTrel, frameLickI, frameWaterI)
+            writeDffVid(filePathTrials{t}, vidName, frameRate, frameTrel, frameLickI, frameWaterI)
 
         end
 
@@ -165,11 +186,11 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
                 imgWithText = insertText(imgWithText, [700, 607], frameTimeStr, 'FontSize', 22, 'TextColor', 'white');
 
                 if frameLickI(f)
-                    imgWithText = insertText(imgWithText, [265, 10], 'Lick', 'FontSize', 22, 'TextColor', 'white');
+                    imgWithText = insertText(imgWithText, [10, 60], 'Lick', 'FontSize', 22, 'TextColor', 'white');
                 end
 
                 if frameWaterI(f)
-                    imgWithText = insertText(imgWithText, [530, 10], 'Water', 'FontSize', 22, 'TextColor', 'white');
+                    imgWithText = insertText(imgWithText, [10, 20], 'Water', 'FontSize', 22, 'TextColor', 'white');
                 end
 
                 imshow(imgWithText);
@@ -183,15 +204,6 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
             close(labeledVid);
         end
     end
-
-
-
-
-
-
-
-
-
 
     function correctTimeIdx = correctFrameI(refArray, timeIdx1, numPoints)
         corrArray = 1:0.5:floor(max(refArray)/2);
