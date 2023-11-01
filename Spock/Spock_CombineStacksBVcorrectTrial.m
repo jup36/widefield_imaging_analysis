@@ -1,4 +1,4 @@
-function Spock_CombineStacksBVcorrect(folder_path,save_fn,parameter_class)
+function Spock_CombineStacksBVcorrectTrial(folder_path,save_fn,parameter_class)
 % folder_path = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823/DA008_101823_img/DA008_101823_1'; 
 % save_fn = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823/DA008_101823_img/DA008_101823_1/DA008_101823_1_dff_combined.mat';
 % parameter_class = 'general_params_example';  
@@ -10,7 +10,7 @@ function Spock_CombineStacksBVcorrect(folder_path,save_fn,parameter_class)
         [stack, opts] = CombineStacks(folder_path,parameter_class);       
         %perform hemodynamic correction and make dff
         if numel(unique(opts.wavelength_pattern))>1 %if multiple wavelengths used
-           [dff, dff_b, ~] = HemodynamicCorrectionBVcorrect(stack, opts); 
+           [dff, dff_b, ~] = HemodynamicCorrectionBVcorrectTrial(stack, opts); 
            %ImpactOfHemoCorrection(dff,dff_b,dff_h)
         else
            fprintf('\n No hemodynamic correction');

@@ -1,5 +1,5 @@
 function dffPostprocess(filePath)
-%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_100923/DA008_100923_img';
+%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
 %tbytDat
 %   evtType:
 %       1 or 2: visual (common, uncommon)
@@ -13,9 +13,12 @@ function dffPostprocess(filePath)
 %           Note that 5-s peri-reward window was used -1 to 4s relative to reward
 
 % load trial-by-trial behavior & task data tbytDat.mat
-parentDir = fileparts(filePath);
-[~, header] = fileparts(parentDir);
-fileBeh = GrabFiles_sort_trials('tbytDat', 1, {parentDir});
+%parentDir = fileparts(filePath);
+[~, header] = fileparts(filePath);
+fileBeh = GrabFiles_sort_trials('tbytDat', 0, {fullfile(filePath, 'Matfiles')});
+if isempty(fileBeh{1})
+    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath}); 
+end
 load(fullfile(fileBeh{1}), 'tbytDat')
 
 % load the preprocessed dffs

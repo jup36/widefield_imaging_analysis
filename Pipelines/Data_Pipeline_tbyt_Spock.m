@@ -59,7 +59,6 @@ for cur_fold = 1:numel(folder_list_raw)
 
     %Create spock bash script for each file and run it
     job_id = cell(1,numel(file_list_raw));
-    % for cur_file = 1:numel(file_list_raw)
     input_val = {ConvertMacToBucketPath(file_list_raw{1}), ConvertMacToBucketPath(opts_list{1})};
     script_name = WriteBashScriptMac(sprintf('%d_%d', cur_fold, 1),'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"},...
         'sbatch_time',15,'sbatch_memory',8);  % bash script to run for preprocessing
@@ -76,7 +75,7 @@ for cur_fold = 1:numel(folder_list_raw)
     [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
     file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
     script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, 1), ...
-        'Spock_CombineStacksBVcorrect',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'},{"'%s'","'%s'","'%s'"});
+        'Spock_CombineStacksBVcorrectTrial',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'},{"'%s'","'%s'","'%s'"});
 
     % Run job with dependency
     response = ssh2_command(s_conn,...
