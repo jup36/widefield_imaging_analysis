@@ -1,4 +1,4 @@
-function dffPostprocess(filePath)
+function dffPostprocessGng(filePath)
 %filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
 %tbytDat
 %   evtType:
@@ -17,19 +17,19 @@ function dffPostprocess(filePath)
 [~, header] = fileparts(filePath);
 fileBeh = GrabFiles_sort_trials('tbytDat', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh{1})
-    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath}); 
+    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
 end
 load(fullfile(fileBeh{1}), 'tbytDat')
 
+fileStim = GrabFiles_sort_trials('stimInfo', 0, {fullfile(filePath, 'Matfiles')});
+load(fileStim{1}, 'stimopts')
+
 % load the preprocessed dffs
-[file_list_dff, folder_list_dff] = GrabFiles_sort_trials('dff_combined.mat', 1, {filePath}); % use GrabFiles_sort_trials to sort both files and folders
-dffC = cell(1, length(file_list_dff));
-for ff = 1:length(file_list_dff)
-    load(file_list_dff{ff}, 'dff')
-    dffC{1, ff} = dff;
-    clearvars dff
-    fprintf("finished loading dff file #%d\n", ff)
-end
+file_list_dff = GrabFiles_sort_trials('dff_combined.mat', 1, {filePath}); % use GrabFiles_sort_trials to sort both files and folders
+assert(length(file_list_dff)==length(tbytDat))
+assert(length(stimopts.rewarded_stim)==length(tbytDat))
+[tbytDat(:).rewardTrI] = deal(0); 
+[tbytDat(:).punishTrI] = deal(0); 
 
 % file directory for trials
 filePathTrials = fullfile(filePath, strcat(header, '_trials'));
@@ -41,50 +41,56 @@ end
 
 % take corresponding frames with for each trial with 2D gaussian filtering
 for tt = 1:length(tbytDat)
-    if ~isempty(tbytDat(tt).cmosExp)
-        trSubDir = fullfile(filePathTrials, sprintf('block_%d_trial_%d', tbytDat(tt).cmosExpTrainI, tt));
+    if ~isempty(tbytDat(tt).cmos)
+        trSubDir = fullfile(filePathTrials, sprintf('trial_%d', tt));
         if exist(trSubDir, 'dir') ~= 7
-           mkdir(trSubDir);
+            mkdir(trSubDir);
         end
-        dff = dffC{1, tbytDat(tt).cmosExpTrainI};
-        tbytDat(tt).frameT = tbytDat(tt).cmosExp(1:2:end); % frame time (needs to alternate due to interleaved violet frames for hemodynamic correction)
-        temp1stFrameI = floor(tbytDat(tt).cmosExpPulsesOfTrain{1}./2); % 1st frame to take in dff (indices must be divided by 2 since dff already taken excluding violet frames)
-        tbytDat(tt).frameI = temp1stFrameI:temp1stFrameI+length(tbytDat(tt).frameT)-1;
-        tbytDat(tt).dff = dff(:,:,tbytDat(tt).frameI); % aligned dff
+
+        if stimopts.rewarded_stim(tt)==1
+            tbytDat(tt).rewardTrI = 1; 
+        elseif stimopts.punished_stim(tt)==1
+            tbytDat(tt).punishTrI = 1; 
+        end
+
+        load(file_list_dff{tt}, 'dff'); % load dff
+
+        tbytDat(tt).frameT = tbytDat(tt).cmos(1:2:end); % frame time (needs to alternate due to interleaved violet frames for hemodynamic correction)
+        tbytDat(tt).dff = dff(:,:,1:min(length(tbytDat(tt).frameT), size(dff, 3))); % aligned dff
         tbytDat(tt).dffsm = applyImgaussfilt(tbytDat(tt).dff);
 
         % map temporal events to cmosExp pulses
-        tbytDat(tt).frameLickI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).licks);
+        tbytDat(tt).frameLickI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).Lick);
         tbytDat(tt).frameWaterI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).water);
+        tbytDat(tt).frameAirpuffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).airpuff); 
 
         % timestamp each frame relative to the stim onset
-        if tbytDat(tt).evtType < 3  % 1 or 2: visual (common, uncommon)
-            tbytDat(tt).frameStimOnI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOn);
-            tbytDat(tt).frameStimOffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOff);
-            tbytDat(tt).frameStimI = zeros(length(tbytDat(tt).frameT), 1);
-            tbytDat(tt).frameStimI(find(tbytDat(tt).frameStimOnI, 1):find(tbytDat(tt).frameStimOffI, 1), 1) = 1;
-        end
-        tbytDat(tt).frameTrel = tbytDat(tt).frameT-tbytDat(tt).evtOn;
-        tbytDat(tt).dir = folder_list_dff{tbytDat(tt).cmosExpTrainI};
-        
-        tbytDff =  tbytDat(tt).dff; 
-        tbytDffsm =  tbytDat(tt).dffsm; 
+        tbytDat(tt).frameStimOnI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).stimOn);
+        tbytDat(tt).frameStimOffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).stimOff);
+        tbytDat(tt).frameStimI = zeros(length(tbytDat(tt).frameT), 1);
+        tbytDat(tt).frameStimI(find(tbytDat(tt).frameStimOnI, 1):find(tbytDat(tt).frameStimOffI, 1), 1) = 1;
+
+        tbytDat(tt).frameTrel = tbytDat(tt).frameT-tbytDat(tt).stimOn;
+        tbytDat(tt).faceCamTrel = tbytDat(tt).faceCam-tbytDat(tt).stimOn; 
+
+        tbytDff =  tbytDat(tt).dff;
+        tbytDffsm =  tbytDat(tt).dffsm;
         save(fullfile(trSubDir, 'tbytDff.mat'), 'tbytDff', 'tbytDffsm')
-    
+
     end
     fprintf('processed dff of trial#%d\n', tt)
 end
 
 % record frames save in separate folders
-record_dff_frames(tbytDat, filePathTrials)
+%record_dff_frames(tbytDat, filePathTrials)
 
 % make dff videos
-frameRate = 5;
-make_dff_videos(tbytDat, filePathTrials, frameRate, 37)
+%frameRate = 5;
+%make_dff_videos(tbytDat, filePathTrials, frameRate, 37)
 
 % save tbytDat without dffs
 tbytDat = rmfield(tbytDat, {'dff', 'dffsm'});
-save(fullfile(parentDir, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
+save(fullfile(filePath, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function record_dff_frames(tbytDat, filePathTrials, varargin)
@@ -264,6 +270,29 @@ save(fullfile(parentDir, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
 % frame = rand(68, 68);
 % frame(randi([1, 68], 10), randi([1, 68], 10)) = NaN;
 % fig = plotFrameWithNans(frame);
+
+    function refTsI = check_timestamp_overlap(refTs, evtTs)
+        % Generate example data (replace with your actual data)
+        %refTs = faceCam_pt;
+        %evtTs = xStampSec_lick;
+
+        % Find the minimum and maximum timestamps of the first set
+        minRefTs = min(refTs);
+        maxRefTs = max(refTs);
+
+        refTsI = zeros(length(refTs), 1);
+
+        % Select second timestamps that fall between the minimum and maximum of the first set
+        selectEvtTs = evtTs(evtTs(:, 1) >= minRefTs & evtTs(:, 1) <= maxRefTs, 1);
+
+        if ~isempty(selectEvtTs)
+            for ts = 1:length(selectEvtTs)
+                [~, minI] = min(abs(refTs - selectEvtTs(ts, 1)));
+                refTsI(minI) = 1;
+            end
+        end
+
+    end
 
 
 end
