@@ -11,7 +11,7 @@ addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
 %addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis'));
 
 %configure preprocessing options
-opts = ConfigurePreProcessing('crop_w',540,'vasc_std',2,'save_uncorrected',0);
+opts = ConfigurePreProcessing('crop_w',540,'vasc_std',2,'save_uncorrected',0,'method','baseline','method_window',50);
 
 %load general params (this is for anything after preprocessing)
 parameter_class = 'general_params_example';
@@ -75,7 +75,8 @@ for cur_fold = 1:numel(folder_list_raw)
     [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
     file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
     script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, 1), ...
-        'Spock_CombineStacksBVcorrectTrial',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'},{"'%s'","'%s'","'%s'"});
+        'Spock_CombineStacksBVcorrectTrial',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'}, ...
+        {"'%s'","'%s'","'%s'"});
 
     % Run job with dependency
     response = ssh2_command(s_conn,...

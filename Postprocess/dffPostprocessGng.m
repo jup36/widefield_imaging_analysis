@@ -25,8 +25,18 @@ fileStim = GrabFiles_sort_trials('stimInfo', 0, {fullfile(filePath, 'Matfiles')}
 load(fileStim{1}, 'stimopts')
 
 % load the preprocessed dffs
-file_list_dff = GrabFiles_sort_trials('dff_combined.mat', 1, {filePath}); % use GrabFiles_sort_trials to sort both files and folders
-assert(length(file_list_dff)==length(tbytDat))
+%file_list_dff = GrabFiles_sort_trials('dff_combined.mat', 1, {fullfile(filePath, strcat(header, '_img'))}); % use GrabFiles_sort_trials to sort both files and folders
+
+file_list_img_trial = findFoldersWithString(fullfile(filePath, strcat(header, '_img')), header);
+file_list_dff = cell(1, length(file_list_img_trial)); 
+for ii = 1:length(file_list_img_trial)
+    file_list_dff{ii} = findFileWithString(file_list_img_trial{ii}, 'dff_combined'); 
+    fprintf("Located dff file #%d\n", ii)
+end
+
+valDffFileNumb = sum(~cell2mat(cellfun(@isempty, file_list_dff, 'UniformOutput', false))); 
+
+assert(valDffFileNumb==length(tbytDat))
 assert(length(stimopts.rewarded_stim)==length(tbytDat))
 [tbytDat(:).rewardTrI] = deal(0); 
 [tbytDat(:).punishTrI] = deal(0); 
@@ -38,6 +48,9 @@ if exist(filePathTrials, 'dir') == 0
 end
 
 %refCmosFrameIdx = 1:2700; % there must be 2700 cmos exposure pulses / frames recorded
+
+dffCell = cell(1, length(file_list_dff));
+dffsmCell = cell(1, length(file_list_dff)); 
 
 % take corresponding frames with for each trial with 2D gaussian filtering
 for tt = 1:length(tbytDat)
@@ -73,6 +86,10 @@ for tt = 1:length(tbytDat)
         tbytDat(tt).frameTrel = tbytDat(tt).frameT-tbytDat(tt).stimOn;
         tbytDat(tt).faceCamTrel = tbytDat(tt).faceCam-tbytDat(tt).stimOn; 
 
+        dffCell{tt} =  tbytDat(tt).dff;
+        dffsmCell{tt} =  tbytDat(tt).dffsm;
+        
+        
         tbytDff =  tbytDat(tt).dff;
         tbytDffsm =  tbytDat(tt).dffsm;
         save(fullfile(trSubDir, 'tbytDff.mat'), 'tbytDff', 'tbytDffsm')
@@ -91,6 +108,8 @@ end
 % save tbytDat without dffs
 tbytDat = rmfield(tbytDat, {'dff', 'dffsm'});
 save(fullfile(filePath, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
+save(fullfile(filePath, 'Matfiles', [header, '_dffCollect']), 'dffCell', '-v7.3')
+save(fullfile(filePath, 'Matfiles', [header, '_dffsmCollect']), 'dffsmCell', '-v7.3')
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function record_dff_frames(tbytDat, filePathTrials, varargin)
