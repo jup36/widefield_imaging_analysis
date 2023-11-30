@@ -12,6 +12,8 @@ elseif strcmp(opts.method,'mode')
     avgproj  = mode(stack,3);
 elseif strcmp(opts.method,'movingavg') %30 second moving average window (since opts.fps is multiplexed
     avgproj = movmean(stack,w,3,'Endpoints','shrink');
+elseif strcmp(opts.method,'baseline') %compute dff where basline is during  a specific window
+    avgproj = nanmean(stack(:,:,opts.method_window),3);
 else
     error('unknown dff method');
 end

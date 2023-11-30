@@ -1,4 +1,4 @@
-function make_dff_videos_gng(filePath, frameRate, pethTime, varargin)
+function make_dff_videos_gng_saveEachFrameAsImg(filePath, frameRate, pethTime, varargin)
 % pethTime: peri-event time of the frames to be included in the video
 
 %% load tbytDat
@@ -47,13 +47,13 @@ for t = 1:length(filePathTrials) % trials
     frameWaterI = tbytDat(trialNum).frameWaterI(fI);
     frameAirpuffI = tbytDat(trialNum).frameAirpuffI(fI);
 
-    writeDffVidTrial(filePathTrials{t}, vidName, frameRate, fI, frameTrel, frameLickI, frameWaterI, frameAirpuffI)
+   writeDffVidTrialSaveEachImage(filePathTrials{t}, vidName, frameRate, fI, frameTrel, frameLickI, frameWaterI, frameAirpuffI)
 
     fprintf('Video #%d of total %d videos is written.\n', t, length(filePathTrials));
 end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function writeDffVidTrial(pngPath, vidName, frameRate, pethFrameI, frameTrel, frameLickI, frameWaterI, frameAirpuffI)
+function writeDffVidTrialSaveEachImage(pngPath, vidName, frameRate, pethFrameI, frameTrel, frameLickI, frameWaterI, frameAirpuffI)
 pngs = GrabFiles_sort_trials('frame_', 0, {pngPath});
 
 assert(length(pngs)==length(pethFrameI))
@@ -107,6 +107,10 @@ for f = 1:length(pngs) % frames
 
         % Display the image
         imshow(imgWithText);
+    
+        % Save the displayed figure as a PDF with higher resolution
+        saveFileName = fullfile(pngPath, sprintf('FrameWithText_%d_%d.png', f, frameCount));
+        print(gcf, saveFileName, '-dpng', '-r300'); % '-r300' sets the resolution to 300 dpi
 
         frame = im2frame(imgWithText);
 
@@ -117,6 +121,7 @@ for f = 1:length(pngs) % frames
 end
 close(labeledVid);
 end
+
 
 end
 

@@ -11,7 +11,7 @@ addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
 %addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis'));
 
 %configure preprocessing options
-opts = ConfigurePreProcessing('crop_w',540,'vasc_std',2,'save_uncorrected',0,'method','baseline','method_window',50);
+opts = ConfigurePreProcessing('crop_w',540,'vasc_std',2,'save_uncorrected',0,'method','baseline','method_window',11:90);
 
 %load general params (this is for anything after preprocessing)
 parameter_class = 'general_params_example';
@@ -29,7 +29,7 @@ gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates
 %Grab reference images for each. Preload so no delay between loop.
 ref_img = GetReferenceImage(file_list_first_stack{1},opts.fixed_image); % use the first frame of the first trial 
 
-%manual allignment 
+%manual alignment 
 prepro_log = ManualAlignmentAdjust(ref_img,opts);
 % 1. crop (move the window and 2-click)
 % 2. midline (draw a line with two dots and 2-click)
