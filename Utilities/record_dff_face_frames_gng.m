@@ -1,0 +1,166 @@
+function record_dff_face_frames_gng(filePath, varargin)
+% filePath = 'Z:\Rodent Data\Behavioral_dynamics_cj\DA008\DA008_101823';
+% e.g., dff = tbytDat(21).dffsm
+%By default this function iterate through all trials and record frames of
+% each trial as png files. It can also run specific trials designated as varargin.
+
+%% load tbytDat
+[~, header] = fileparts(filePath);
+fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
+if isempty(fileBeh{1})
+    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
+end
+load(fullfile(fileBeh{1}), 'tbytDat')
+
+%% list face videos
+faceVidPath = fullfile(filePath, strcat(header, '_vid_facecropped')); 
+faceVids = GrabFiles_sort_trials('behvid', 0, {faceVidPath});
+
+%% sort trials to work with
+if isempty(varargin)
+    trials = 1:length(tbytDat);
+else
+    trials = [varargin{1}(:)]';
+end
+
+%%
+filePathTrials = fullfile(filePath, strcat(header, '_trials'));
+
+%% record frames first
+close all;
+for t = trials % 1:length(tbytDat) % trial
+    pngDir = fullfile(filePathTrials, sprintf('trial_%d', t));
+    
+    % load dff
+    load(fullfile(pngDir, 'tbytDff.mat'), 'tbytDffsm');
+
+    % interpolate dff (15Hz) to match the faceCam sampling rate (200Hz)
+    valDffFrameMinI = find(tbytDat(t).frameTrel < min(tbytDat(t).faceCamTrel), 1, 'last');
+    valDffFrameMaxI = find(tbytDat(t).frameTrel > max(tbytDat(t).faceCamTrel), 1, 'first');
+    
+    origDffTs = tbytDat(t).frameTrel(valDffFrameMinI:valDffFrameMaxI);
+    targetFaceTs = tbytDat(t).faceCamTrel;
+    
+    tbytDffsmIntp = temporalIntpImageFrames( tbytDffsm(:,:,valDffFrameMinI:valDffFrameMaxI), origDffTs, targetFaceTs ); 
+
+    % VideoReader object for face video
+    fVidObj = VideoReader(faceVids{t}); 
+
+    % get the total number of frames
+    totalFaceFrames = fVidObj.NumFrames; 
+    
+    % the totalFaceFrames in the video can be a bit shorter than the pulses
+    % (usually by 2 pulses). For the best alignment, select the
+    % corresponding middle portion of the relevant data.  
+    if totalFaceFrames < length(targetFaceTs)
+        middleI = logical(middleIndex(length(targetFaceTs), totalFaceFrames));
+        tbytDffsmIntp = tbytDffsmIntp(:, :, middleI); 
+        targetFaceTs = targetFaceTs(middleI);
+    end
+    tbytDat(t).faceCamTrelFrames = targetFaceTs; 
+    
+    assert(totalFaceFrames==size(tbytDffsmIntp, 3))
+    assert(totalFaceFrames==length(targetFaceTs ))
+
+    % read, concatenate, and write each frame
+    for fr = 1:totalFaceFrames
+        pngName = sprintf('faceDff_frame_%d.png', fr);
+
+        % read the face frame 
+        faceFrame = read(fVidObj, fr); 
+
+        % Resize (interpolate) dff to match faceFrame
+        tbytDffsmIntpRs = imresize(tbytDffsmIntp(:, :, fr), [fVidObj.Height, fVidObj.Width]); 
+        
+        % Draw dff first
+        figHandle = imageFrameWithNaNs(tbytDffsmIntpRs, [-2 2]); hold on;
+        axis off; set(gcf, 'Color', 'w');
+
+        cueOnT = tbytDat(t).frameTrel(find(tbytDat(t).frameStimI, 1, 'first')); 
+        cueOffT = tbytDat(t).frameTrel(find(tbytDat(t).frameStimI, 1, 'last')); 
+        
+        % insert grating marker
+        if targetFaceTs(fr) >= cueOnT && targetFaceTs(fr) <= cueOffT  
+            if tbytDat(t).rewardTrI == 1 % common visual stim (draw 0 degree lines at the upper left corner)
+               insertgrating0(figHandle, tbytDffsmIntpRs)
+            elseif tbytDat(t).punishTrI == 1 % common visual stim (draw 90 degree lines at the upper left corner)
+               insertgrating90(figHandle, tbytDffsmIntpRs)
+            end
+        end
+
+        % Capture the current figure with dots
+        frameLabeled = getframe(gca);
+        frameLabeled = frameLabeled.cdata;
+
+        % rescale the framelabeled 
+        scaleFactor = size(faceFrame, 1) / size(frameLabeled, 1);
+        newWidth = round(size(frameLabeled, 2) * scaleFactor);
+        
+        rsFrameLabeled = imresize(frameLabeled, [size(faceFrame, 1), newWidth]); 
+        
+        % Concatenate dff and face frames horizontally 
+        dffFaceConcat = cat(2, rsFrameLabeled, faceFrame);
+
+        % Save the image as png
+        imwrite(dffFaceConcat, fullfile(pngDir, pngName))
+        
+        fprintf('Frame #%d of trial #%d is labeled and saved.\n', fr, t);
+        close all
+    end
+end
+save(fullfile(fileBeh{1}), 'tbytDat') % to save tbytDat(t).faceCamTrelFrames
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function middleArrayI = middleIndex(originalArrayLength, numMiddlePoints)
+%This function gets the index to select the middle portion of
+%   the originalArrayLength that corresponds to
+%   numMiddlePoints.
+
+if originalArrayLength >= numMiddlePoints
+    % originalArrayLength = length(targetFaceTs);
+    % Calculate start and end indices
+    startIndex = ceil((originalArrayLength - numMiddlePoints) / 2) + 1;
+    endIndex = startIndex + numMiddlePoints - 1;
+
+    middleArrayI = zeros(originalArrayLength, 1);
+
+    % Select the middle points
+    middleArrayI(startIndex:endIndex)=1;
+else
+    error("The specified middle points exceeds the original array length!")
+end
+end
+
+
+function newMatrix = temporalIntpImageFrames( imgFrameMat, originalTimePoints, targetTimePoints )
+% Assuming tbytDffsm is your original 3D matrix
+% And tbytDat(t).frameTrel and tbytDat(t).fraceCamTrel are your time vectors
+
+%originalTimePoints = tbytDat(t).frameTrel(valDffFrameMinI:valDffFrameMaxI);
+%targetTimePoints = tbytDat(t).faceCamTrel;
+
+% Get the size of the original matrix
+[height, width, ~] = size(imgFrameMat);
+
+% Preallocate the new 3D matrix
+newMatrix = nan(height, width, length(targetTimePoints));
+
+% Interpolate for each pixel
+for i = 1:height
+    for j = 1:width
+        pixelTimeSeries = squeeze(imgFrameMat(i, j, :));
+        if sum(~isnan(pixelTimeSeries))==length(pixelTimeSeries)
+            newMatrix(i, j, :) = interp1(originalTimePoints, pixelTimeSeries, targetTimePoints, 'linear', 'extrap');
+        else
+            newMatrix(i, j, :) = nan(length(targetTimePoints), 1); 
+        end
+    end
+end
+
+
+end
+
+end
+
+
+

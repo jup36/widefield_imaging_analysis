@@ -1,16 +1,6 @@
 function dffPostprocessGng_averaging(filePath)
 %filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
-%tbytDat
-%   evtType:
-%       1 or 2: visual (common, uncommon)
-%           evtOn: photoDiodeOn
-%           evtOff: photoDiodeOff
-%           periEvtWin: evtOn-1:evtOff+1 (e.g. 4s)
-%       3: reward
-%           evtOn: water delivery
-%           evtOff: 4-s after water delivery
-%           periEvtWin: evtOn-1:evtOff (e.g. 5s)
-%           Note that 5-s peri-reward window was used -1 to 4s relative to reward
+
 
 %% load trial-by-trial behavior & task data tbytDat.mat
 %parentDir = fileparts(filePath);
@@ -21,7 +11,14 @@ if isempty(fileBeh)
 end
 load(fullfile(fileBeh{1}), 'tbytDat')
 
-tbytDat = parseGngTrials(tbytDat);
+% get behavioral data further analyzed
+fileBehParseGng = GrabFiles_sort_trials('tbytDat_parseGng', 0, {fullfile(filePath, 'Matfiles')});
+if isempty(fileBehParseGng)
+    tbytDat = parseGngTrials(tbytDat);
+    save(fullfile(filePath, 'Matfiles', strcat(header, '_tbytDat_parseGng')), 'tbytDat')
+else
+    load(fileBehParseGng{1})
+end
 
 % load the preprocessed dffs collect
 load(fullfile(filePath, 'Matfiles', strcat(header, '_dffsmCollect.mat')), 'dffsmCell');
@@ -82,7 +79,7 @@ for t = 1:length(tbytDat)
     %% Align to stim Onset
     [rez.stimOnDffC.m1{t, 1}, rez.stimOnDffC.m1{t, 2}] = alignToEvent(dffM1, 0, frT, [-3 2.5]);
     [rez.stimOnDffC.m2{t, 1}, rez.stimOnDffC.m2{t, 2}] = alignToEvent(dffM2, 0, frT, [-3 2.5]);
-    [rez.stimOnDffC.Ss{t, 1}, rez.stimOnDffC.s1{t, 2}] = alignToEvent(dffSs, 0, frT, [-3 2.5]);
+    [rez.stimOnDffC.ss{t, 1}, rez.stimOnDffC.ss{t, 2}] = alignToEvent(dffSs, 0, frT, [-3 2.5]);
     [rez.stimOnDffC.v1{t, 1}, rez.stimOnDffC.v1{t, 2}] = alignToEvent(dffV1, 0, frT, [-3 2.5]);
     [rez.stimOnDffC.rs{t, 1}, rez.stimOnDffC.rs{t, 2}] = alignToEvent(dffRs, 0, frT, [-3 2.5]);
 
@@ -94,7 +91,61 @@ for t = 1:length(tbytDat)
         [rez.itiLickDff.v1{t, 1}{ii, 1}, rez.itiLickDff.v1{t, 1}{ii, 2}] = alignToEvent(dffV1, tbytDat(t).itiLickChunk{ii}(1), frT, [-1 1]); % V1 align to the ITI lick bout use the 1st lick of each bout
         [rez.itiLickDff.rs{t, 1}{ii, 1}, rez.itiLickDff.rs{t, 1}{ii, 2}] = alignToEvent(dffRs, tbytDat(t).itiLickChunk{ii}(1), frT, [-1 1]); % Rs align to the ITI lick bout use the 1st lick of each bout
     end
+    
+    %% Align to postStim licks after visual cue offset
+    for jj = 1:length(tbytDat(t).postStimChunk)
+        if tbytDat(t).postStimChunk{jj}(1) + 1 < frT(end)
+            [rez.postStimLickDff.m1{t, 1}{jj, 1}, rez.postStimLickDff.m1{t, 1}{jj, 2}] = alignToEvent(dffM1, tbytDat(t).postStimChunk{jj}(1), frT, [-1 1]); % M1 align to the postStimLick lick bout use the 1st lick of each bout
+            [rez.postStimLickDff.m2{t, 1}{jj, 1}, rez.postStimLickDff.m2{t, 1}{jj, 2}] = alignToEvent(dffM2, tbytDat(t).postStimChunk{jj}(1), frT, [-1 1]); % M2 align to the postStimLick lick bout use the 1st lick of each bout
+            [rez.postStimLickDff.ss{t, 1}{jj, 1}, rez.postStimLickDff.ss{t, 1}{jj, 2}] = alignToEvent(dffSs, tbytDat(t).postStimChunk{jj}(1), frT, [-1 1]); % Ss align to the postStimLick lick bout use the 1st lick of each bout
+            [rez.postStimLickDff.v1{t, 1}{jj, 1}, rez.postStimLickDff.v1{t, 1}{jj, 2}] = alignToEvent(dffV1, tbytDat(t).postStimChunk{jj}(1), frT, [-1 1]); % V1 align to the postStimLick lick bout use the 1st lick of each bout
+            [rez.postStimLickDff.rs{t, 1}{jj, 1}, rez.postStimLickDff.rs{t, 1}{jj, 2}] = alignToEvent(dffRs, tbytDat(t).postStimChunk{jj}(1), frT, [-1 1]); % Rs align to the postStimLick lick bout use the 1st lick of each bout
+        end
+    end
 
+    %% xcorr dff and lick bouts
+    % lick chuncks time relative to stimOn
+    if ~isempty(tbytDat(t).LickChunk)
+        tbytDat(t).LickBoutRel = cellfun(@(a) a-tbytDat(t).stimOn, tbytDat(t).LickChunk, 'UniformOutput', false);
+        %m1
+        [lickOnTf, lickBoxOnTf, dffsOnTfItpM1, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffM1, tbytDat(1).frameTrel, [-5 5]);
+        rez.lickOnTfBin{t, 1} = bin1msSpkCountMat( lickOnTf, 50, 50 ); 
+        rez.dffsOnTfItpM1{t, 1} = dffsOnTfItpM1(1:50:end); 
+        [rez.xcorrDffLick.m1{t, 1}, rez.xcorrDffLick.m1{t, 2}] = xcorr(dffsOnTfItpM1-min(dffsOnTfItpM1), lickOnTf, 2000, 'normalized');
+        [rez.xcorrDffLickBox.m1{t, 1}, rez.xcorrDffLickBox.m1{t, 2}] = xcorr(dffsOnTfItpM1-min(dffsOnTfItpM1), lickBoxOnTf, 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.m1{t, 1}, rez.xcorrDsDffLickBox.m1{t, 2}] = xcorr(dffsOnTfItpM1(1:50:end)-min(dffsOnTfItpM1), lickBoxOnTf(1:50:end), 40, 'normalized');        
+        %m2
+        [lickOnTf, lickBoxOnTf, dffsOnTfItpM2, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffM2, tbytDat(1).frameTrel, [-5 5]);
+        rez.dffsOnTfItpM2{t, 1} = dffsOnTfItpM2(1:50:end); 
+        [rez.xcorrDffLick.m2{t, 1}, rez.xcorrDffLick.m2{t, 2}] = xcorr(dffsOnTfItpM2-min(dffsOnTfItpM2), lickOnTf, 2000, 'normalized');
+        [rez.xcorrDffLickBox.m2{t, 1}, rez.xcorrDffLickBox.m2{t, 2}] = xcorr(dffsOnTfItpM2-min(dffsOnTfItpM2), lickBoxOnTf, 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.m2{t, 1}, rez.xcorrDsDffLickBox.m2{t, 2}] = xcorr(dffsOnTfItpM2(1:50:end)-min(dffsOnTfItpM2), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        %ss
+        [lickOnTf, lickBoxOnTf, dffsOnTfItpSs, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffSs, tbytDat(1).frameTrel, [-5 5]);
+        rez.dffsOnTfItpSs{t, 1} = dffsOnTfItpSs(1:50:end); 
+        [rez.xcorrDffLick.ss{t, 1}, rez.xcorrDffLick.ss{t, 2}] = xcorr(dffsOnTfItpSs-min(dffsOnTfItpSs), lickOnTf, 2000, 'normalized');
+        [rez.xcorrDffLickBox.ss{t, 1}, rez.xcorrDffLickBox.ss{t, 2}] = xcorr(dffsOnTfItpSs-min(dffsOnTfItpSs), lickBoxOnTf, 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.ss{t, 1}, rez.xcorrDsDffLickBox.ss{t, 2}] = xcorr(dffsOnTfItpSs(1:50:end)-min(dffsOnTfItpSs), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        %v1
+        [lickOnTf, lickBoxOnTf, dffsOnTfItpV1, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffV1, tbytDat(1).frameTrel, [-5 5]);
+        rez.dffsOnTfItpV1{t, 1} = dffsOnTfItpV1(1:50:end); 
+        [rez.xcorrDffLick.V1{t, 1}, rez.xcorrDffLick.V1{t, 2}] = xcorr(dffsOnTfItpV1-min(dffsOnTfItpV1), lickOnTf, 2000, 'normalized');
+        [rez.xcorrDffLickBox.v1{t, 1}, rez.xcorrDffLickBox.v1{t, 2}] = xcorr(dffsOnTfItpV1-min(dffsOnTfItpV1), lickBoxOnTf, 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.v1{t, 1}, rez.xcorrDsDffLickBox.v1{t, 2}] = xcorr(dffsOnTfItpV1(1:50:end)-min(dffsOnTfItpV1), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        %rs
+        [lickOnTf, lickBoxOnTf, dffsOnTfItpRs, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffRs, tbytDat(1).frameTrel, [-5 5]);
+        rez.dffsOnTfItpRs{t, 1} = dffsOnTfItpRs(1:50:end); 
+        [rez.xcorrDffLick.rs{t, 1}, rez.xcorrDffLick.rs{t, 2}] = xcorr(dffsOnTfItpRs-min(dffsOnTfItpRs), lickOnTf, 2000, 'normalized');
+        [rez.xcorrDffLickBox.rs{t, 1}, rez.xcorrDffLickBox.rs{t, 2}] = xcorr(dffsOnTfItpRs-min(dffsOnTfItpRs), lickBoxOnTf, 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.rs{t, 1}, rez.xcorrDsDffLickBox.rs{t, 2}] = xcorr(dffsOnTfItpRs(1:50:end)-min(dffsOnTfItpRs), lickBoxOnTf(1:50:end), 2000, 'normalized');
+    end
+    %figure; hold on; 
+    %plot(tF, smooth2a(dffsOnTfItp, 0, 50)); 
+    %plot(tF, lickBoxOnTf); 
+    %plot(tF, licksOnTf); 
+    %set(gca, 'XTick', -5:1:5, 'TickDir', 'out', 'YTick', -1.5:0.5:1.5); 
+    %title('Dff overlayed with licks')
+    %print(fullfile(filePath, 'Figure', 'dff_overlayed_with_licks.pdf'), '-dpdf', '-vector', '-bestfit')
     
     %% Align to water (1st water only)
     if ~isempty(tbytDat(t).water)
@@ -232,162 +283,6 @@ end
 % save rez
 save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask.mat')), 'rez'); 
 
-%% Stim onset aligned activity (M1)
-% align dffs take the mean and sem
-% primary motor (stim onset)
-[stimOnDff_m1_itp, timepts] = temporalAlignInterp1(rez.stimOnDffC.m1(:, 1), rez.stimOnDffC.m1(:, 2));
-[rez.meanStimOnDff.m1, ~, rez.semStimOnDff.m1] = meanstdsem(cell2mat(stimOnDff_m1_itp));
-
-% primary motor (stim onset) go no-go
-[rez.meanStimOnDffGng.m1, rez.semStimOnDffGng.m1] = trialGroupMeanSem(stimOnDff_m1_itp, {[tbytDat.rewardTrI], [tbytDat.punishTrI]});
-plotMeanSem(rez.meanStimOnDffGng.m1, rez.semStimOnDffGng.m1, timepts, {'Go', 'NoGo'});
-title("Go Nogo M1 (cue onset at time=0)");
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:4, 'TickDir', 'out', 'YTick', -1:0.5:1); xlim([-2 2]); ylim([-1 1])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_m1.pdf'), '-dpdf', '-vector', '-bestfit')
-
-% primary motor (stim onset) go no-go (logistic regression)
-rez.logitGngCueOnM1 = logireg(cell2mat(stimOnDff_m1_itp), [tbytDat.rewardTrI]); % logistic regression
-
-%% iti licks (M1)
-itiLickDffM1 = flatCell(rez.itiLickDff.m1); 
-itiLickDffM1Ts = cellfun(@(a) linspace(-1, 1, length(a)), itiLickDffM1(:, 2), 'UniformOutput', false); 
-[itiLickDffM1Itp, itiLickDffM1ItpTs] = temporalAlignInterp1(itiLickDffM1 (:, 1), itiLickDffM1Ts);
-[rez.meanItiLickDff.m1, ~, rez.semItiLickDff.m1] = meanstdsem(cell2mat(itiLickDffM1Itp));
-
-
-
-cellfun(@length, itiLickDffM1, 'UniformOutput', false)
-
-
-rez.itiLickDff.m1
-
-
-
-itiLickTsM1 = cellfun(@(a) a(:, 2), rez.itiLickDff.m1(itiLickI), 'UniformOutput', false); 
-
-
-
-
-
-
-
-%% Stim onset aligned activity (M2)
-% supplementary motor (stim onset)
-stimOnDff_m2_itp = temporalAlignInterp1(stimOnDffC.m2(:, 1), stimOnDffC.m2(:, 2));
-[rez.mStimOnDffM2, ~, rez.semStimOnDffM2] = meanstdsem(cell2mat(stimOnDff_m2_itp));
-
-% supplementary motor (stim onset) go no-go
-[rez.mStimOnDffGngM2, rez.sStimOnDffGngM2] = trialGroupMeanSem(stimOnDff_m2_itp, {[tbytDat.rewardTrI], [tbytDat.punishTrI]});
-plotMeanSem(rez.mStimOnDffGngM2, rez.sStimOnDffGngM2, timepts, {'Go', 'NoGo'});
-title("Go Nogo M2 (cue onset at time=0)");
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:4, 'TickDir', 'out', 'YTick', -1:0.5:1); xlim([-2 2]); ylim([-1 1])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_m2.pdf'), '-dpdf', '-vector', '-bestfit')
-
-% supplementary motor (stim onset) go no-go (logistic regression)
-rez.logitGngCueOnM2 = logireg(cell2mat(stimOnDff_m2_itp), [tbytDat.rewardTrI]); % logistic regression
-
-%% Stim onset aligned activity (S1)
-% somatosensory (stim onset)
-stimOnDff_s1_itp = temporalAlignInterp1(stimOnDffC.s1(:, 1), stimOnDffC.s1(:, 2));
-[rez.mStimOnDffS1, ~, rez.semStimOnDffS1] = meanstdsem(cell2mat(stimOnDff_s1_itp));
-
-% somato sensory (stim onset) go no-go
-[rez.mStimOnDffGngS1, rez.sStimOnDffGngS1] = trialGroupMeanSem(stimOnDff_s1_itp, {[tbytDat.rewardTrI], [tbytDat.punishTrI]});
-plotMeanSem(rez.mStimOnDffGngS1, rez.sStimOnDffGngS1, timepts, {'Go', 'NoGo'});
-title("Go Nogo S1 (cue onset at time=0)");
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:4, 'TickDir', 'out', 'YTick', -1:0.5:1); xlim([-2 2]); ylim([-1 1])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_s1.pdf'), '-dpdf', '-vector', '-bestfit')
-
-% somato sensory (stim onset) go no-go (logistic regression)
-rez.logitGngCueOnS1 = logireg(cell2mat(stimOnDff_s1_itp), [tbytDat.rewardTrI]); % logistic regression
-
-%% Stim onset aligned activity (V)
-% visual (stim onset)
-stimOnDff_v_itp = temporalAlignInterp1(stimOnDffC.v(:, 1), stimOnDffC.v(:, 2));
-[rez.mStimOnDffV, ~, rez.semStimOnDffV] = meanstdsem(cell2mat(stimOnDff_v_itp));
-
-% visual (stim onset) go no-go
-[rez.mStimOnDffGngV, rez.sStimOnDffGngV] = trialGroupMeanSem(stimOnDff_v_itp, {[tbytDat.rewardTrI], [tbytDat.punishTrI]});
-plotMeanSem(rez.mStimOnDffGngV, rez.sStimOnDffGngV, timepts, {'Go', 'NoGo'});
-title("Go Nogo V (cue onset at time=0)");
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:4, 'TickDir', 'out', 'YTick', -1:0.5:1); xlim([-2 2]); ylim([-1 1])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_v.pdf'), '-dpdf', '-vector', '-bestfit')
-
-% visual (stim onset) go no-go (logistic regression)
-rez.logitGngCueOnV = logireg(cell2mat(stimOnDff_v_itp), [tbytDat.rewardTrI]); % logistic regression
-
-%% retrosplenial cortex (RS)
-stimOnDff_rs_itp = temporalAlignInterp1(stimOnDffC.rs(:, 1), stimOnDffC.rs(:, 2));
-[rez.mStimOnDffRs, ~, rez.semStimOnDffRs] = meanstdsem(cell2mat(stimOnDff_rs_itp));
-
-% retrosplenial (stim onset) go no-go
-[rez.mStimOnDffGngRs, rez.sStimOnDffGngRs] = trialGroupMeanSem(stimOnDff_rs_itp, {[tbytDat.rewardTrI], [tbytDat.punishTrI]});
-plotMeanSem(rez.mStimOnDffGngRs, rez.sStimOnDffGngRs, timepts, {'Go', 'NoGo'});
-title("Go Nogo Rs (cue onset at time=0)");
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:4, 'TickDir', 'out', 'YTick', -1:0.5:1); xlim([-2 2]); ylim([-1 1])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_rs.pdf'), '-dpdf', '-vector', '-bestfit')
-
-% retrosplenial (stim onset) go no-go (logistic regression)
-rez.logitGngCueOnRs = logireg(cell2mat(stimOnDff_rs_itp), [tbytDat.rewardTrI]); % logistic regression
-
-%% plot stim onset PETHs together
-plotMeanSem([rez.mStimOnDffM1; rez.mStimOnDffM2; rez.mStimOnDffS1; rez.mStimOnDffRs; rez.mStimOnDffV], ...
-    [rez.semStimOnDffM1; rez.semStimOnDffM2; rez.semStimOnDffS1; rez.semStimOnDffRs; rez.semStimOnDffV], ...
-    timepts, ...
-    {'M1', 'M2', 'S1', 'RS', 'V'});
-xlabel('Time (s)')
-ylabel('DFF')
-set(gca, 'XTick', -2:1:4)
-xlim([-2 2])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Collect.pdf'), '-dpdf', '-vector', '-bestfit')
-
-%% plot classification accuracy
-plotMeanSem(smooth2a([rez.logitGngCueOnM1; rez.logitGngCueOnM2; rez.logitGngCueOnS1; rez.logitGngCueOnRs; rez.logitGngCueOnV], 0, 2), ...
-    zeros(5, length(timepts)), timepts, {'M1', 'M2', 'S1', 'RS', 'V'});
-title("Cross-validated classification accuracy")
-xlabel('Time (s)')
-ylabel('Classification Accuracy')
-set(gca, 'XTick', -2:1:4, 'YTick', -1:0.1:1, 'TickDir', 'out')
-xlim([-2 2])
-ylim([0.45 0.85])
-print(fullfile(filePath, 'Figure', 'logisticRegression_Gng_cueOn_Collect.pdf'), '-dpdf', '-vector', '-bestfit')
-
-
-
-
-
-
-% baseline dff image
-rez.meanBaseDffImgMotor = nanmean(cell2mat(reshape(rwdDffC_motor(:, 3), [1, 1, length(tbytDat)])), 3);
-imageFrameWithNaNsEdgeMap(rez.meanBaseDffImgMotor, [-.3 .3], dorsalMaps.edgeMap, [0, 0, 1], 0.3)
-title('mean baseline M1')
-set(gca, 'XTickLabel', {})
-set(gca, 'YTickLabel', {})
-print(fullfile('/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/Figure', 'dff_base_M1_Img.pdf'), '-dpdf', '-vector', '-bestfit')
-
-% reward dff image
-rez.meanRwdDffImgMotor = nanmean(cell2mat(reshape(rwdDffC_motor(:, 4), [1, 1, length(tbytDat)])), 3);
-imageFrameWithNaNsEdgeMap(rez.meanRwdDffImgMotor, [-.3 .3], dorsalMaps.edgeMap, [0, 0, 1], 0.3)
-print(fullfile('/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/Figure', 'dff_reward_M1_Img.pdf'), '-dpdf', '-vector', '-bestfit')
-title('mean reward M1')
-set(gca, 'XTickLabel', {})
-set(gca, 'YTickLabel', {})
-print(fullfile('/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/Figure', 'dff_reward_M1_Img.pdf'), '-dpdf', '-vector', '-bestfit')
-
-
-
-showAllenEdgesOnTransformedWF(rez.meanBaseDffImgMotor, dorsalMaps, 0, 1)
-
-imageFrameWithNaNs(rez.meanRwdDffImgMotor, [-.3 .3])
-
-
-
-% save tbytDat without dffs
-tbytDat = rmfield(tbytDat, {'dff', 'dffsm'});
-save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
-
-
-
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [evtAlignedDffTs, evtAlignedTs] = alignToEvent(dffTs, eventTimeToAlign, frameT, timeWin)
         win = timeWin + eventTimeToAlign; 
@@ -482,11 +377,11 @@ save(fullfile(parentDir, Matfiles, [header, '_tbytDat_dff']), 'tbytDat')
 
         accuracy = nan(1, size(X, 2));
         % Training
-        for jj = 1:size(X, 2) % iterate features
-            model = fitglm(X(trainInd, jj), Y(trainInd), 'Distribution', 'binomial');
+        for ff = 1:size(X, 2) % iterate features
+            model = fitglm(X(trainInd, ff), Y(trainInd), 'Distribution', 'binomial');
             % Testing
-            Y_pred = predict(model, X(testInd,jj)) > 0.5; % Thresholding at 0.5
-            accuracy(1, jj) = sum(Y_pred == Y(testInd)) / length(Y_pred);
+            Y_pred = predict(model, X(testInd,ff)) > 0.5; % Thresholding at 0.5
+            accuracy(1, ff) = sum(Y_pred == Y(testInd)) / length(Y_pred);
         end
 
     end
