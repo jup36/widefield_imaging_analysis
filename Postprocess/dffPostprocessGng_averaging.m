@@ -38,7 +38,7 @@ end
 
 % apply region mask
 % M1
-motorId = cell2mat(cellfun(@(a) strcmpi(a, 'Primary motor area, Layer 1'), dorsalMaps.labelTable.name, 'UniformOutput', false));
+motorId = cell2mat(cellfun(@(a) strcmpi(a, 'Primary motor area, Layer 1'), dorsalMaps.labelTable.name, 'UniformOutput', fa));
 motorI = dorsalMaps.labelTable.id(motorId);
 motorMask = dorsalMaps.dorsalMap==motorI;
 

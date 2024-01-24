@@ -1,5 +1,5 @@
-function dffPostprocess_averaging(filePath)
-%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023/DA003_083023_img';
+function dffPostprocessPV_averaging(filePath)
+%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA003/DA003_083023';
 %tbytDat
 %   evtType:
 %       1 or 2: visual (common, uncommon)
@@ -13,14 +13,6 @@ function dffPostprocess_averaging(filePath)
 %           Note that 5-s peri-reward window was used -1 to 4s relative to reward
 
 % load trial-by-trial behavior & task data tbytDat.mat
-parentDir = fileparts(filePath);
-[~, header] = fileparts(parentDir);
-fileBeh = GrabFiles_sort_trials('tbytDat', 1, {parentDir});
-load(fullfile(fileBeh{1}), 'tbytDat')
-
-
-
-%parentDir = fileparts(filePath);
 [~, header] = fileparts(filePath);
 fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh)
@@ -29,9 +21,8 @@ end
 load(fullfile(fileBeh{1}), 'tbytDat')
 
 
-
 % load the preprocessed dffs
-[file_list_dff, folder_list_dff] = GrabFiles_sort_trials('dff_combined.mat', 1, {filePath}); % use GrabFiles_sort_trials to sort both files and folders
+[file_list_dff, folder_list_dff] = GrabFiles_sort_trials('dff_combined.mat', 1, {fullfile(filePath, strcat(header, '_img'))}); % use GrabFiles_sort_trials to sort both files and folders
 dffC = cell(1, length(file_list_dff));
 for ff = 1:length(file_list_dff)
     load(file_list_dff{ff}, 'dff')
