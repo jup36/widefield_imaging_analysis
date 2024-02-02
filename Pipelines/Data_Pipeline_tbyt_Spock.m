@@ -1,8 +1,10 @@
 
+
+% TODO: TURN THIS INTO A FUNCTION 
 filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823/DA008_101823_img'; 
 
 % Open ssh connection
-username = input(' Spock Username: ', 's');
+username = input('Spock Username: ', 's');
 password = passcode();
 s_conn = ssh2_config('spock.princeton.edu',username,password);
 
@@ -49,7 +51,7 @@ prepro_log.output_size = [];
 
 %save off the options to each folder
 save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log') 
-
+% save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log') 
 %% Run PreProcess on Spock
 file_list_preprocessed = cell(1,numel(folder_list_raw));
 

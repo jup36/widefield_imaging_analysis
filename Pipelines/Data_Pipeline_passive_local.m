@@ -1,17 +1,20 @@
+%This function goes through the preprocessing portion of the pipeline
+% locally to align frames, mark bregma, mask/unmask specific areas including vasculature 
+% through 'ManualAlignmentAdjust'. 
 
-filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA009/DA009_100923/DA009_100923_img'; 
+filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA012/DA012_011124/DA012_011124_img'; 
 
 % Open ssh connection
-username = input(' Spock Username: ', 's');
-password = passcode();
-s_conn = ssh2_config('spock.princeton.edu',username,password);
+%username = input(' Spock Username: ', 's');
+%password = passcode();
+%s_conn = ssh2_config('spock.princeton.edu',username,password);
 
 %Add paths
 addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
 %addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis'));
 
 %configure preprocessing options
-opts = ConfigurePreProcessing('crop_w',540,'vasc_std',2,'save_uncorrected',0);
+opts = ConfigurePreProcessing('crop_w',540,'vasc_std',2,'save_uncorrected',0,'method','movingavg','method_window',30);
 
 %load general params (this is for anything after preprocessing)
 parameter_class = 'general_params_example';
@@ -27,7 +30,7 @@ gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates
     {filePathImg});
 
 %Grab reference images for each. Preload so no delay between loop.
-ref_img = GetReferenceImage(file_list_first_stack{1},opts.fixed_image); % use the first frame of the first trial 
+ref_img = GetReferenceImage(file_list_first_stack{1}, opts.fixed_image); % use the first frame of the first trial 
 
 %manual allignment 
 prepro_log = ManualAlignmentAdjust(ref_img,opts);
@@ -50,37 +53,32 @@ prepro_log.output_size = [];
 %save off the options to each folder
 save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log') 
 
-%% Run PreProcess on Spock
+%% Run PreProcess 
 file_list_preprocessed = cell(1,numel(folder_list_raw));
+
+opts = prepro_log; % USE CAUTION with opts as it now becomes prepro_log to be used for the next step
 
 for cur_fold = 1:numel(folder_list_raw)
     [file_list_raw,~] = GrabFiles('.tif',0,folder_list_raw(cur_fold)); % note that there's only one file per folder in this experiment 
     [opts_list,~] = GrabFiles('prepro_log.m',0,folder_list_raw(1)); % use opts from the 1st trial
+    
+    [path, fn] = fileparts(file_list_raw{1}); 
 
-    %Create spock bash script for each file and run it
-    job_id = cell(1,numel(file_list_raw));
-    % for cur_file = 1:numel(file_list_raw)
-    input_val = {ConvertMacToBucketPath(file_list_raw{1}), ConvertMacToBucketPath(opts_list{1})};
-    script_name = WriteBashScriptMac(sprintf('%d_%d', cur_fold, 1),'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"},...
-        'sbatch_time',15,'sbatch_memory',8);  % bash script to run for preprocessing
+    fprintf('\nPreprocessing... file %s\n',fn)
+    stack = PreProcess(file_list_raw{cur_fold}, opts);
 
-    %Run job
-    response = ssh2_command(s_conn,...
-        ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-        sprintf('sbatch %s',script_name)]);
+    %save off data
+    fprintf('\n Saving data');
+    fn = [path filesep fn '_stack.mat'];
+    save(fn,'stack','opts','-v7.3');
 
-    %get job id
-    job_id{cur_fold} = erase(response.command_result{1},'Submitted batch job ');
+    fprintf('\n Complete');
 
     %Once each folder is done, combine all the stacks and do hemocorrection
-    [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
-    file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
-    script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, 1), ...
-        'Spock_CombineStacksBVcorrect',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'},{"'%s'","'%s'","'%s'"});
+    [~,header] = fileparts(folder_list_raw{cur_fold});
 
-    % Run job with dependency
-    response = ssh2_command(s_conn,...
-        ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-        sprintf('sbatch --dependency=afterok:%s %s',[job_id{:}],script_name)]);    
+    file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
+    
+    CombineStacksBVcorrect_Local(folder_list_raw{cur_fold}, file_list_preprocessed{cur_fold}, 'general_params_example') 
 end
 

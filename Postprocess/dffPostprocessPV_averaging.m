@@ -14,6 +14,11 @@ function dffPostprocessPV_averaging(filePath)
 
 % load trial-by-trial behavior & task data tbytDat.mat
 [~, header] = fileparts(filePath);
+
+if exist(fullfile(filePath, 'Matfiles'), 'dir')==0
+    mkdir(fullfile(filePath, 'Matfiles'))
+end
+
 fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh)
     fileBeh = GrabFiles_sort_trials('tbytDat_dff', 1, {filePath});
@@ -35,13 +40,35 @@ end
 load('allenDorsalMap', 'dorsalMaps');
 
 % load Allen transformation object
-load(fullfile(folder_list_dff{1}, 'transParamsAllen.mat'), 'transParams')
+folder_list_imgTrial = GrabFiles_sort_trials(header, 0, {fullfile(filePath, strcat(header, '_img'))}); % use GrabFiles_sort_trials to sort both files and folders
+load(fullfile(folder_list_imgTrial{1}, 'transParamsAllen.mat'), 'transParams')
 
-% file directory for trials
-filePathTrials = fullfile(parentDir, strcat(header, '_trials'));
-if exist(filePathTrials, 'dir') == 0
-    mkdir(filePathTrials);
-end
+% apply region mask
+% M1
+motorId = cell2mat(cellfun(@(a) strcmpi(a, 'Primary motor area, Layer 1'), dorsalMaps.labelTable.name, 'UniformOutput', false));
+motorI = dorsalMaps.labelTable.id(motorId);
+motorMask = dorsalMaps.dorsalMap==motorI;
+
+% M2
+smotorId = cell2mat(cellfun(@(a) strcmpi(a, 'Secondary motor area, Layer 1'), dorsalMaps.labelTable.name, 'UniformOutput', false));
+smotorI = dorsalMaps.labelTable.id(smotorId);
+smotorMask = dorsalMaps.dorsalMap==smotorI;
+
+% S1
+ssMask = getSSmask(dorsalMaps);
+
+% Visual area
+vMask = getVmask(dorsalMaps);
+
+% Retrosplenial area
+rsMask = getRSmask(dorsalMaps);
+
+rwdDffC_motor = cell(length(tbytDat), 4);
+rwdDffC_smotor = cell(length(tbytDat), 4);
+rwdDffC_ss = cell(length(tbytDat), 4);
+rwdDffC_v = cell(length(tbytDat), 4);
+rwdDffC_rs = cell(length(tbytDat), 4);
+
 
 %refCmosFrameIdx = 1:2700; % there must be 2700 cmos exposure pulses / frames recorded
 
@@ -77,36 +104,12 @@ rwdI = cell2mat(cellfun(@(a) a==3, {tbytDat.evtType}, 'UniformOutput', false)); 
 dffI = cell2mat(cellfun(@(a) ~isempty(a), {tbytDat.dffsm}, 'UniformOutput', false)); % trials with dff
 rwdDffI = rwdI & dffI; 
 
-% just temporally align to water delivery 
-%tbytDat(21).dffsm
-%tbytDat(21).dffsm(isnan(tbytDat(21).dffsm))
-
-
-% transform frames 
-%wfa = alignStackToAllenKabsch(tbytDat(21).dffsm, dorsalMaps.dorsalMap, transParams.tformObj); 
-
-% apply region mask 
-% M1
-motorId = cell2mat(cellfun(@(a) strcmpi(a, 'Primary motor area, Layer 1'), dorsalMaps.labelTable.name, 'UniformOutput', false)); 
-motorI = dorsalMaps.labelTable.id(motorId); 
-motorMask = dorsalMaps.dorsalMap==motorI; 
-
-% M2
-smotorId = cell2mat(cellfun(@(a) strcmpi(a, 'Secondary motor area, Layer 1'), dorsalMaps.labelTable.name, 'UniformOutput', false)); 
-smotorI = dorsalMaps.labelTable.id(smotorId); 
-smotorMask = dorsalMaps.dorsalMap==smotorI; 
-
-% S1
-ssMask = getSSmask(dorsalMaps); 
-
-% Visual area 
-vMask = getVmask(dorsalMaps); 
-
 
 rwdDffC_motor = cell(length(tbytDat), 4); 
 rwdDffC_smotor = cell(length(tbytDat), 4); 
 rwdDffC_ss = cell(length(tbytDat), 4); 
 rwdDffC_v = cell(length(tbytDat), 4); 
+
 
 for t = 1:length(tbytDat)
     if rwdDffI(t) && tbytDat(t).cmosExpTrainI~=2 % for some reason, the block 2 was problematic, so just exclude now for DA002_083023

@@ -1,13 +1,22 @@
+function Data_Pipeline_passive_Spock_func(filePath, varargin)
 
-filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823/DA008_101823_img'; 
+p = parse_input_ctxWideImagePreprocess(filePath, varargin);
+%p = parse_input_ctxWideImagePreprocess(filePath, {'redoManual', false}); 
 
-% Open ssh connection
-username = input(' Spock Username: ', 's');
-password = passcode();
-s_conn = ssh2_config('spock.princeton.edu',username,password);
+filePathImg = GrabFiles_sort_trials('_img', 0, {filePath});
+if isempty(filePathImg)
+    filePathImg  = uigetdir(filePath, 'Select a folder containing the images');
+end
+
+if exist('s_conn', 'var')~=1
+    % Open ssh connection
+    username = input(' Spock Username: ', 's');
+    password = passcode();
+    s_conn = ssh2_config('spock.princeton.edu',username,password);
+end
 
 %Add paths
-addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
+%addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
 %addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis'));
 
 %configure preprocessing options
@@ -23,32 +32,39 @@ gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates
 %% Manual Portion
 %select folders to process and grab the first file from each rec.
 %EXAMPLE DATA: Select 'subfolders' and then select '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA001/DA001_072623/DA001_072623_img'
-[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif',1, ... % use GrabFiles_sort_trials to sort both files and folders 
-    {filePathImg});
+[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif', 1, filePathImg(1)); % use GrabFiles_sort_trials to sort both files and folders 
 
-%Grab reference images for each. Preload so no delay between loop.
-ref_img = GetReferenceImage(file_list_first_stack{1},opts.fixed_image); % use the first frame of the first trial 
+path_prepro_log = GrabFiles_sort_trials('prepro_log', 0, folder_list_raw(1));
 
-%manual allignment 
-prepro_log = ManualAlignmentAdjust(ref_img,opts);
-% 1. crop (move the window and 2-click)
-% 2. midline (draw a line with two dots and 2-click)
-% 3. bregma (drop a dot)
+if isempty(path_prepro_log) || p.Results.redoManual
+    %Grab reference images for each. Preload so no delay between loop.
+    ref_img = GetReferenceImage(file_list_first_stack{1},opts.fixed_image); % use the first frame of the first trial
 
-%mask vasculature and manual cleanup (optional)
-prepro_log = MaskVasculature(...
-    prepro_log.cropped_alligned_img,prepro_log);
-close; 
-%no transformation
-prepro_log.tform = []; 
-prepro_log.output_size = [];
+    %manual allignment
+    prepro_log = ManualAlignmentAdjust(ref_img,opts);
+    % 1. crop (move the window and 2-click)
+    % 2. midline (draw a line with two dots and 2-click)
+    % 3. bregma (drop a dot)
 
-% Skipping 'RegisterReferenceImages.m', as we're not combining data across
-% sessions, in which case registering to a common reference frame would be
-% necessary. 
+    %mask vasculature and manual cleanup (optional)
+    prepro_log = MaskVasculature(...
+        prepro_log.cropped_alligned_img,prepro_log);
+    close;
 
-%save off the options to each folder
-save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log') 
+    %no transformation
+    prepro_log.tform = [];
+    prepro_log.output_size = [];
+
+    % Skipping 'RegisterReferenceImages.m', as we're not combining data across
+    % sessions, in which case registering to a common reference frame would be
+    % necessary.
+
+    %save off the options to each folder
+    save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log')
+else
+    load(fullfile(path_prepro_log{1}), 'prepro_log')
+end
+
 
 %% Run PreProcess on Spock
 file_list_preprocessed = cell(1,numel(folder_list_raw));
@@ -84,4 +100,23 @@ for cur_fold = 1:numel(folder_list_raw)
         sprintf('sbatch --dependency=afterok:%s %s',[job_id{:}],script_name)]);    
 
 end
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function p = parse_input_ctxWideImagePreprocess(filePath, vargs)
+    % parse input, and extract name-value pairs
+    default_redoManual = false;    % logic to redo manual curation
+
+    p = inputParser; % create parser object
+    addRequired(p,'filePath')
+    addParameter(p,'redoManual', default_redoManual)
+
+    parse(p, filePath, vargs{:})
+end
+
+
+
+end
+
+
 
