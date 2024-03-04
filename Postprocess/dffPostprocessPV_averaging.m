@@ -19,7 +19,7 @@ if exist(fullfile(filePath, 'Matfiles'), 'dir')==0
     mkdir(fullfile(filePath, 'Matfiles'))
 end
 
-fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
+fileBeh = GrabFiles_sort_trials('tbytDat', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh)
     fileBeh = GrabFiles_sort_trials('tbytDat_dff', 1, {filePath});
 end

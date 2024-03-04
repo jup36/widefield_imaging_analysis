@@ -42,7 +42,6 @@ for t = trials % 1:length(tbytDat) % trial
                 frameLabled = frameLabled.cdata;
 
                 % save the figure with dots
-
                 imwrite(frameLabled, fullfile(pngSubDir, pngName));
 
                 fprintf('Frame #%d of trial #%d is labeled and saved.\n', i, t);

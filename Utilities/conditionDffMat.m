@@ -1,5 +1,4 @@
 function [dffmat,badcols,badrows] = conditionDffMat(dff,badcols,badrows,imsize3) 
-
 % [dffmat,badcols,badrows] = conditionDffMat(dff,badcols,badrows,imsize3) 
 % converts to 3D (image format) from time x pxls format or vice-versa
 % accoridng to input dff dimensions. badcols and barows are list of indices

@@ -1,7 +1,7 @@
 
 
 % TODO: TURN THIS INTO A FUNCTION 
-filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823/DA008_101823_img'; 
+filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724/GC2719_020724_img'; 
 
 % Open ssh connection
 username = input('Spock Username: ', 's');
@@ -38,8 +38,8 @@ prepro_log = ManualAlignmentAdjust(ref_img,opts);
 % 3. bregma (drop a dot)
 
 %mask vasculature and manual cleanup (optional)
-prepro_log = MaskVasculature(...
-    prepro_log.cropped_alligned_img,prepro_log);
+prepro_log.vasc_std = 1; % note that the default vasc_std is 2
+prepro_log = MaskVasculature_JP(prepro_log.cropped_alligned_img,prepro_log); % This edited function uses 'showImgAndMask' with brighter visualization of images
 close; 
 %no transformation
 prepro_log.tform = []; 

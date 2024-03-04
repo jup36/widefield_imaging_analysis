@@ -1,37 +1,39 @@
-function dffPostprocess(filePath)
-%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
+function dffPostprocess_auditory(filePath, varargin)
+%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724';
 %tbytDat
 %   evtType:
 %       1 or 2: visual (common, uncommon)
-%           evtOn: photoDiodeOn
+%           evtOn:
 %           evtOff: photoDiodeOff
 %           periEvtWin: evtOn-1:evtOff+1 (e.g. 4s)
-%       3: reward
-%           evtOn: water delivery
-%           evtOff: 4-s after water delivery
-%           periEvtWin: evtOn-1:evtOff (e.g. 5s)
-%           Note that 5-s peri-reward window was used -1 to 4s relative to reward
+%       3: No reward was used yet.
 
 % load trial-by-trial behavior & task data tbytDat.mat
 %parentDir = fileparts(filePath);
+
+
+p = parse_postprocessing(filePath, varargin);
+
+p = parse_postprocessing(filePath, ...
+    {'imageToUse', 'ome_stack', 'dffMethod', 'tbytBase', 'bvCorrectLogic', true, ...
+    'tbytBaseWinF', 1, 'movingWinF', 30, 'saveTbytDff', true});
+
+if ~ismember(p.Results.imageToUse, {'ome_stack', 'dff_combined'})
+    error('Image data type needs to be specified as dff_combined or ome_stack!')
+end
+
+%% whereabouts
 [~, header] = fileparts(filePath);
 fileBeh = GrabFiles_sort_trials('tbytDat', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh{1})
-    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath}); 
+    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
 end
-load(fullfile(fileBeh{1}), 'tbytDat')
 
+% directory for imaging data
 fileImg = GrabFiles_sort_trials('_img', 0, {fullfile(filePath)});
 
-% load the preprocessed dffs
-[file_list_dff, folder_list_dff] = GrabFiles_sort_trials('dff_combined.mat', 1, fileImg(1)); % use GrabFiles_sort_trials to sort both files and folders
-dffC = cell(1, length(file_list_dff));
-for ff = 1:length(file_list_dff)
-    load(file_list_dff{ff}, 'dff')
-    dffC{1, ff} = dff;
-    clearvars dff
-    fprintf("finished loading dff file #%d\n", ff)
-end
+% directory for nidq behavioral data
+filePath_nidq =  GrabFiles_sort_trials('_g', 0, {filePath});
 
 % file directory for trials
 filePathTrials = fullfile(filePath, strcat(header, '_trials'));
@@ -39,40 +41,79 @@ if exist(filePathTrials, 'dir') == 0
     mkdir(filePathTrials);
 end
 
-%refCmosFrameIdx = 1:2700; % there must be 2700 cmos exposure pulses / frames recorded
+%% load data
+% load evtIns for 'cmosExp' essential for temporal alignment of the frames
+load(fullfile(filePath_nidq{1}, 'evtInS'), 'evtInS')
+if exist('evtInS', 'var')~=1
+    [evtInS_file, evtInS_folder] = uigetfile('*.mat', 'Select the evtInS file for cmosExp!', filePath);
+    load(fullfile(evtInS_folder, evtInS_file), 'evtInS')
+end
+fprintf("finished loading evtInS!\n")
 
-% take corresponding frames with for each trial with 2D gaussian filtering
+% load tbytDat that contains trial-by-trial timestamps (cmosExp, faceCam)
+load(fullfile(fileBeh{1}), 'tbytDat')
+fprintf("finished loading tbytDat!\n")
+
+%
+if strcmp(p.Results.imageToUse, 'ome_stack')
+    % load preprocessed stacks ('ome_stack.mat')
+    [file_list_img, folder_list_img] = GrabFiles_sort_trials('ome_stack.mat', 1, fileImg(1)); % use GrabFiles_sort_trials to sort both files and folders
+    imgC = cell(1, length(file_list_img));
+    for ss = 1:length(file_list_img)
+        load(file_list_img{ss}, 'stack') % note that there are all trials
+        imgC{1, ss} = stack;
+        clearvars stack
+        if exist('prepro_log', 'var')~=1
+            load(file_list_img{ss}, 'opts')
+        end
+        fprintf("finished loading stack file #%d/%d\n", ss, length(file_list_img))
+    end
+
+    tbytDat = rawStackProcessing(filePath, imgC, tbytDat, opts, evtInS.cmosExp, p.Results);
+
+elseif strcmp(p.Results.imageToUse, 'dff_combined')
+    % load preprocessed dffs ('dff_combined.mat')
+    [file_list_img, folder_list_img] = GrabFiles_sort_trials('dff_combined.mat', 1, fileImg(1)); % use GrabFiles_sort_trials to sort both files and folders
+    imgC = cell(1, length(file_list_img));
+    for ff = 1:length(file_list_img)
+        load(file_list_img{ff}, 'dff')
+        imgC{1, ff} = dff;
+        clearvars dff
+        if exist('prepro_log', 'var')~=1
+            load(file_list_img{ff}, 'opts')
+        end
+        fprintf("finished loading dff file #%d/%d\n", ff, length(file_list_img))
+    end
+
+    tbytDat = dffCombinedProcessing();
+
+
+end
+
+% do additional alignments
 for tt = 1:length(tbytDat)
-    if ~isempty(tbytDat(tt).cmosExp)
-        trSubDir = fullfile(filePathTrials, sprintf('block_%d_trial_%d', tbytDat(tt).cmosExpTrainI, tt));
-        if exist(trSubDir, 'dir') ~= 7
-           mkdir(trSubDir);
-        end
-        dff = dffC{1, tbytDat(tt).cmosExpTrainI};
-        tbytDat(tt).frameT = tbytDat(tt).cmosExp(1:2:end); % frame time (needs to alternate due to interleaved violet frames for hemodynamic correction)
-        temp1stFrameI = floor(tbytDat(tt).cmosExpPulsesOfTrain{1}./2); % 1st frame to take in dff (indices must be divided by 2 since dff already taken excluding violet frames)
-        tbytDat(tt).frameI = temp1stFrameI:temp1stFrameI+length(tbytDat(tt).frameT)-1;
-        tbytDat(tt).dff = dff(:,:,tbytDat(tt).frameI); % aligned dff
-        tbytDat(tt).dffsm = applyImgaussfilt(tbytDat(tt).dff);
+    % timestamp each frame relative to the stim onset
+    if tbytDat(tt).evtType < 3  % 1 or 2: auditory (common, uncommon)
+        tbytDat(tt).frameStimOnI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOn);
+        tbytDat(tt).frameStimOffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOff);
+        tbytDat(tt).frameStimI = zeros(length(tbytDat(tt).frameT), 1);
+        tbytDat(tt).frameStimI(find(tbytDat(tt).frameStimOnI, 1):find(tbytDat(tt).frameStimOffI, 1), 1) = 1;
+    end
+    % map temporal events to cmosExp pulses
+    %tbytDat(tt).frameLickI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).licks);
+    %tbytDat(tt).frameWaterI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).water);
 
-        % map temporal events to cmosExp pulses
-        tbytDat(tt).frameLickI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).licks);
-        tbytDat(tt).frameWaterI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).water);
+end
 
-        % timestamp each frame relative to the stim onset
-        if tbytDat(tt).evtType < 3  % 1 or 2: visual (common, uncommon)
-            tbytDat(tt).frameStimOnI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOn);
-            tbytDat(tt).frameStimOffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOff);
-            tbytDat(tt).frameStimI = zeros(length(tbytDat(tt).frameT), 1);
-            tbytDat(tt).frameStimI(find(tbytDat(tt).frameStimOnI, 1):find(tbytDat(tt).frameStimOffI, 1), 1) = 1;
-        end
-        tbytDat(tt).frameTrel = tbytDat(tt).frameT-tbytDat(tt).evtOn;
-        tbytDat(tt).dir = folder_list_dff{tbytDat(tt).cmosExpTrainI};
-        
-        tbytDff =  tbytDat(tt).dff; 
-        tbytDffsm =  tbytDat(tt).dffsm; 
+
+
+
+
+
+        tbytDff =  tbytDat(tt).dff;
+        tbytDffsm =  tbytDat(tt).dffsm;
         save(fullfile(trSubDir, 'tbytDff.mat'), 'tbytDff', 'tbytDffsm')
-    
+
     end
     fprintf('processed dff of trial#%d\n', tt)
 end
@@ -89,6 +130,30 @@ tbytDat = rmfield(tbytDat, {'dff', 'dffsm'});
 save(fullfile(parentDir, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function p = parse_postprocessing(filePath, vargs)
+        % parse input, and extract name-value pairs
+        default_imageToUse = 'ome_stack'; % default image sets to use, it must be 'ome_stack' or 'dff_combined' 
+        default_dffMethod = 'movingavg'; % default method for dff is moving average
+        default_bvCorrectLogic = true; % default logic for hemodynamic correction
+        default_tbytBaseWinF = 'all'; % default baseline window for trial-by-trial dff ('all' is to use all frames with negative timestamps relativev to the aligned event), otherwise it should be numeric, e.g., 1 for 1 s
+        default_movingWinF = 30; % default window for moving average dff (30 s)
+        default_saveTbytDff = true;
+
+        p = inputParser; % create parser object
+        addRequired(p, 'filePath')
+
+        addParameter(p, 'imageToUse', default_imageToUse)
+        addParameter(p, 'dffMethod', default_dffMethod)
+        addParameter(p, 'bvCorrectLogic', default_bvCorrectLogic)
+        addParameter(p, 'tbytBaseWinF', default_tbytBaseWinF)
+        addParameter(p, 'movingWinF', default_movingWinF)
+        addParameter(p, 'saveTbytDff', default_saveTbytDff)
+
+        parse(p, filePath, vargs{:})
+    end
+
+
+
     function record_dff_frames(tbytDat, filePathTrials, varargin)
         % e.g., dff = tbytDat(21).dffsm
         %By default this function iterate through all trials and record frames of

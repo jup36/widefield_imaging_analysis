@@ -22,13 +22,13 @@ end
 dff = zeros(size(stack,1),size(stack,2),size(stack,3));
 for i = 1:size(stack,3)       
     if strcmp(opts.method,'movingavg')        
-        if strcmp(type,'fractional')%get fractional 
+        if strcmp(type,'fractional') %get fractional 
             dff(:,:,i) = ((double(stack(:,:,i)))./avgproj(:,:,i));
         else %get dff
             dff(:,:,i) = ((double(stack(:,:,i))-avgproj(:,:,i))./avgproj(:,:,i))*100;
         end
     else
-        if strcmp(type,'fractional')%get fractional 
+        if strcmp(type,'fractional') %get fractional 
             dff(:,:,i) = (double(stack(:,:,i))./avgproj);
         else %dff
             dff(:,:,i) = ((double(stack(:,:,i))-avgproj)./avgproj)*100;

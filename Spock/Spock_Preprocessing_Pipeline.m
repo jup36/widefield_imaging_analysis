@@ -9,7 +9,7 @@ opts = opts.prepro_log;
 
 [path, fn] = fileparts(in_fn);
 
-fprintf('\nPreprocessing... file %s',fn)
+fprintf('\nPreprocessing... file %s\n',fn)
 stack = PreProcess(in_fn,opts);
 
 %save off data

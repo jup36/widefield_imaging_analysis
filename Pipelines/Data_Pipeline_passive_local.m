@@ -1,13 +1,12 @@
 %This function goes through the preprocessing portion of the pipeline
 % locally to align frames, mark bregma, mask/unmask specific areas including vasculature 
 % through 'ManualAlignmentAdjust'. 
+% filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724';
 
-filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA012/DA012_011124/DA012_011124_img'; 
-
-% Open ssh connection
-%username = input(' Spock Username: ', 's');
-%password = passcode();
-%s_conn = ssh2_config('spock.princeton.edu',username,password);
+filePathImg = GrabFiles_sort_trials('_img', 0, {filePath});
+if isempty(filePathImg)
+    filePathImg  = uigetdir(filePath, 'Select a folder containing the images');
+end
 
 %Add paths
 addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));

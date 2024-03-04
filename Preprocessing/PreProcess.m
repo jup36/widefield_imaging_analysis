@@ -1,7 +1,7 @@
 function stack = PreProcess(in_fn,opts)
 warning ('off','all'); %Suppress missing tiff metadata warning
 %get stack info (faster than tiff counter)
-info = imfinfo(in_fn); 
+info = imfinfo(in_fn); % imfinfo returns a structure whose fields contain information about an image in a graphics file
 img_count = numel(info); 
 
 %preallocate stack

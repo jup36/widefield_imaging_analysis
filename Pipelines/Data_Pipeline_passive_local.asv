@@ -1,13 +1,9 @@
 %This function goes through the preprocessing portion of the pipeline
 % locally to align frames, mark bregma, mask/unmask specific areas including vasculature 
 % through 'ManualAlignmentAdjust'. 
+ilePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724';
 
 filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA012/DA012_011124/DA012_011124_img'; 
-
-% Open ssh connection
-%username = input(' Spock Username: ', 's');
-%password = passcode();
-%s_conn = ssh2_config('spock.princeton.edu',username,password);
 
 %Add paths
 addpath(genpath('/Volumes/buschman/Rodent Data/Wide Field Microscopy/fpCNMF'));
@@ -56,6 +52,8 @@ save([folder_list_raw{1} filesep 'prepro_log'],'prepro_log')
 %% Run PreProcess 
 file_list_preprocessed = cell(1,numel(folder_list_raw));
 
+opts = prepro_log; % USE CAUTION with opts as it now becomes prepro_log to be used for the next step
+
 for cur_fold = 1:numel(folder_list_raw)
     [file_list_raw,~] = GrabFiles('.tif',0,folder_list_raw(cur_fold)); % note that there's only one file per folder in this experiment 
     [opts_list,~] = GrabFiles('prepro_log.m',0,folder_list_raw(1)); % use opts from the 1st trial
@@ -63,7 +61,7 @@ for cur_fold = 1:numel(folder_list_raw)
     [path, fn] = fileparts(file_list_raw{1}); 
 
     fprintf('\nPreprocessing... file %s\n',fn)
-    stack = PreProcess(file_list_raw{cur_fold}, prepro_log);
+    stack = PreProcess(file_list_raw{cur_fold}, opts);
 
     %save off data
     fprintf('\n Saving data');
