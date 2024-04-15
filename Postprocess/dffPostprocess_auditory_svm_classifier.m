@@ -1,0 +1,183 @@
+%This function uses SVM to classify sensory stimuli based on imaging data
+% collected during presentations of two or more different stimuli. 
+% INPUT: 
+%   Parent directory: filePath
+%   Trial-by-trial image stack: dffsmCell (or dffCell) 
+%   Trial-by-trial info: tbytDat
+
+%% whereabouts
+filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724'; 
+figSavePath = fullfile(filePath, 'Figure'); 
+if exist(figSavePath, 'dir')~=7
+    mkdir(figSavePath)
+end
+[~, header] = fileparts(filePath); 
+
+%% set params
+params.binSize = 0.05; % 50 ms
+params.numFold = 5; % the number of folds to be used for cross-validation
+params.t0 = 0; % timepoint relative to event onset for svm weight averaging
+params.te = 2; % timepoint relative to event onset for svm weight averaging
+
+%% Load data
+% load tbytDat
+fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
+if isempty(fileBeh)
+    fileBeh = GrabFiles_sort_trials('tbytDat_dff', 1, {filePath});
+end
+load(fullfile(fileBeh{1}), 'tbytDat')
+
+% load the preprocessed dffs collect
+load(fullfile(filePath, 'Matfiles', strcat(header, '_dffsmCollect.mat')), 'dffsmCell');
+
+assert(length(tbytDat)==length(dffsmCell))
+
+%% Temporal alignment
+% organize by events
+evtType = [tbytDat.evtType];
+
+% crop and interpolation for temporal alignment (interp1)
+[dffTInt, sparseTime] = temporalAlignInterp3D(dffsmCell(:), {tbytDat.frameTrel}', params.binSize); % 50-ms time bin
+
+% define time
+toi = -0.5 < sparseTime & sparseTime <= 2.5; 
+toiT = sparseTime(toi);
+
+dffTIntCrop = cellfun(@(a) a(:, :, toi), dffTInt, 'UniformOutput', false); 
+
+%% Get dims
+numTrs = length(dffTIntCrop); 
+numRow = size(dffTIntCrop{1}, 1); 
+numCol = size(dffTIntCrop{1}, 2); 
+numTpt = size(dffTIntCrop{1}, 3); 
+numPix = numRow*numCol;
+
+%% Preprocessing
+nanMask = sum(isnan(cell2mat(reshape(dffTIntCrop, [1, 1, numTrs]))), 3)==length(toiT)*numTrs; % NaN pixel logic
+nanMask3d = repmat(nanMask, 1, 1, length(toiT)); % NaN pixel logic 3d
+
+assert(sum(cell2mat(cellfun(@(a) sum(isnan(a(~nanMask3d))), dffTIntCrop, 'UniformOutput', false)))==0); 
+
+% replace nanMask to zeroMask
+for c = 1:length(dffTC)
+    dffTIntCrop{c, 1}(nanMask3d)=0; % replace NaN pixels to 0. 
+end
+
+trialLabel = [tbytDat.evtType]'; % trial label
+
+% flatten images
+dffFlatC = cell(1, numTpt); % each cell to have trial-by-#total pixel matrix 
+for t = 1:numTpt
+    dataAtTimePoint = zeros(numTrs, numRow*numCol); % Initialize/reset for each time point
+    for tt = 1:numTrs
+        % Extract the 68x68 image for this trial at the given time point
+        imageAtTimePoint = dffTIntCrop{tt}(:, :, t);
+        % Flatten the image and store it
+        dataAtTimePoint(tt, :) = reshape(imageAtTimePoint, 1, []);
+    end
+    dffFlatC{t} = dataAtTimePoint;
+end
+clearvars t
+
+%% Train and test SVM classifier
+[trainSetC, testSetC] = balancedResampleTrials(trialLabel, params.numFold);
+
+% Preallocate array to store accuracy for each fold
+accuracy = zeros(params.numFold, numTpt);
+pixelWeights = cell(1, numTpt, params.numFold); 
+
+for t = 1:numTpt
+    for fold = 1:params.numFold
+        % Training and testing data for this fold
+        XTrain = dffFlatC{t}(trainSetC{fold, 1}, :);
+        YTrain = trialLabel(trainSetC{fold, 1});
+        XTest = dffFlatC{t}(testSetC{fold, 1}, :);
+        YTest = trialLabel(testSetC{fold, 1});
+
+        % Train a linear SVM classifier
+        SVMModel = fitcsvm(XTrain, YTrain, 'KernelFunction', 'linear', 'Standardize', true);
+        
+        % Store pixel weights to quantify pixel contribution
+        pixelWeights{1, t, fold} = reshape(SVMModel.Beta, [numRow, numCol]); 
+
+        % Predict the labels of the testing set
+        YPred = predict(SVMModel, XTest);
+
+        % Calculate and store the accuracy for this fold
+        accuracy(fold, t) = sum(YPred == YTest) / length(YTest);
+        fprintf(sprintf('Completed train/test SVM classifier for fold #%d/%d of time point #%d/%d!\n', fold, params.numFold, t, numTpt))
+    end
+end
+clearvars t fold
+
+%% Evaluate the result
+% Calculate and store the average accuracy for this time point
+h1 = figure; 
+plot(toiT, mean(accuracy));
+set(gca, 'TickDir', 'out')
+print(h1, fullfile(figSavePath, ['meanSVMaccuracyVsTime_', header]), '-dpdf', '-vector'); 
+
+% To visualize pixel contribution take the average absolute-valued weights 
+meanPixelWeights = cell(1, numTpt); 
+for t = 1:numTpt
+    meanPixelWeights{1, t} = abs(nanmean(cell2mat(pixelWeights(1, t, :)), 3)); 
+    meanPixelWeights{1, t}(nanMask)=NaN; 
+end
+
+% spatial smoothing
+meanPixelWeights_sm = cellfun(@(a) imgaussfilt(a, 1), meanPixelWeights, 'UniformOutput', false); 
+
+% select timebins
+meanPixelWeights_sm_select = meanPixelWeights_sm(toiT>=params.t0 & toiT<=params.te); 
+meanPixelWeights_sm_selectC = cell(1, 1, length(meanPixelWeights_sm_select)); 
+for i = 1:length(meanPixelWeights_sm_select)
+    meanPixelWeights_sm_selectC{1, 1, i} = meanPixelWeights_sm_select{i}; 
+end
+
+% Visualize the pixelwise weights
+pixelWeights = nanmean(cell2mat(meanPixelWeights_sm_selectC), 3); 
+h2 = figure; 
+imagesc(pixelWeights)
+clim([0 0.006])
+colorbar
+print(h2, fullfile(figSavePath, ['meanPixelwiseSVMweights_', header]), '-dpdf', '-vector'); 
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [trainSetC, testSetC] = balancedResampleTrials(trialLabels, folds)
+%This function takes trialLabels and generates train and test sets as cell
+% arrays that contain balanced number of each label.
+
+uniqLabels = unique(trialLabels); 
+
+% get random sampled trial numbers that correspond to each label
+for i = 1:length(uniqLabels)
+    thisLabel = find(trialLabels==uniqLabels(i)); 
+    shuffledIndices = randperm(length(thisLabel));
+    uniqLabelC{i} = thisLabel(shuffledIndices); 
+end
+
+labelNums = cellfun(@length, uniqLabelC); 
+minLabelNums = min(labelNums); 
+balancedLabelC = cellfun(@(a) a(1:minLabelNums), uniqLabelC, 'UniformOutput', false); 
+testSetTrialNum = floor(min(cellfun(@length, uniqLabelC))/folds); 
+
+trainSetC = cell(folds, 1);
+testSetC = cell(folds, 1);
+
+% get train and test sets
+for i = 1:folds  
+    testInd = testSetTrialNum*(i-1)+1:testSetTrialNum*i; 
+    testLogic = ismember(1:minLabelNums, testInd)'; 
+
+    testSetC{i, 1} = cell2mat(cellfun(@(a) a(testLogic), balancedLabelC', 'UniformOutput', false)); 
+    trainSetC{i, 1} = cell2mat(cellfun(@(a) a(~testLogic), balancedLabelC', 'UniformOutput', false)); 
+end
+
+end
+
+
+
+
+
+
+

@@ -114,6 +114,14 @@ for tt = 1:length(tbytEvt) % increment trials
         % pixel-wise smoothing
         tbytEvt(tt).dffsm = applyImgaussfilt(tbytEvt(tt).dff);
 
+        if isempty(tbytEvt(tt).dff)
+            tbytEvt(tt).dff = NaN; 
+        end
+
+        if isempty(tbytEvt(tt).dffsm)
+            tbytEvt(tt).dffsm = NaN; 
+        end
+
         % save trial-by-trial dff
         if params.saveTbytDff
             trSubDir = fullfile(filePathTrials, sprintf('block_%d_trial_%d', tbytEvt(tt).cmosExpTrainI, tt));

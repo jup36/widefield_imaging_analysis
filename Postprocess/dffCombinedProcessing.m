@@ -1,4 +1,4 @@
-function [tbytEvt, params, options] = dffCombinedProcessing(filePath, dffC, tbytEvt, options, cmosExp, params)
+function [tbytEvt, params, options] = dffCombinedProcessing(filePath, dffC, tbytEvt, options, params)
 %This function takes the preprocessed raw image 'stack' (ome_stack) as a cell and process them
 % using the parameters specified in the options and other user defined inputs.
 % INPUT:

@@ -1,7 +1,7 @@
 
 
 % TODO: TURN THIS INTO A FUNCTION 
-filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724/GC2719_020724_img'; 
+filePathImg = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101723/DA008_101723_img'; 
 
 % Open ssh connection
 username = input('Spock Username: ', 's');

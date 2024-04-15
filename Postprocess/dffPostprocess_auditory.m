@@ -1,5 +1,7 @@
 function dffPostprocess_auditory(filePath, varargin)
-%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724';
+%This function 
+% 
+% filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/GC2719/GC2719_020724';
 %tbytDat
 %   evtType:
 %       1 or 2: visual (common, uncommon)
@@ -14,9 +16,9 @@ function dffPostprocess_auditory(filePath, varargin)
 
 p = parse_postprocessing(filePath, varargin);
 
-p = parse_postprocessing(filePath, ...
-    {'imageToUse', 'ome_stack', 'dffMethod', 'tbytBase', 'bvCorrectLogic', true, ...
-    'tbytBaseWinF', 1, 'movingWinF', 30, 'saveTbytDff', true});
+ p = parse_postprocessing(filePath, ...
+     {'imageToUse', 'ome_stack', 'dffMethod', 'tbytBase', 'bvCorrectLogic', true, ...
+     'tbytBaseWinF', 1, 'movingWinF', 30, 'saveTbytDff', true});
 
 if ~ismember(p.Results.imageToUse, {'ome_stack', 'dff_combined'})
     error('Image data type needs to be specified as dff_combined or ome_stack!')
@@ -70,7 +72,7 @@ if strcmp(p.Results.imageToUse, 'ome_stack')
     end
 
     tbytDat = rawStackProcessing(filePath, imgC, tbytDat, opts, evtInS.cmosExp, p.Results);
-
+  
 elseif strcmp(p.Results.imageToUse, 'dff_combined')
     % load preprocessed dffs ('dff_combined.mat')
     [file_list_img, ~] = GrabFiles_sort_trials('dff_combined.mat', 1, fileImg(1)); % use GrabFiles_sort_trials to sort both files and folders
@@ -85,8 +87,14 @@ elseif strcmp(p.Results.imageToUse, 'dff_combined')
         fprintf("finished loading dff file #%d/%d\n", ff, length(file_list_img))
     end
 
-    tbytDat = dffCombinedProcessing(filePath, imgC, tbytDat, opts, evtInS.cmosExp, p.Results);
+    tbytDat = dffCombinedProcessing(filePath, imgC, tbytDat, opts, p.Results);
 end
+
+dffCell = {tbytDat.dff};
+dffsmCell = {tbytDat.dff}; 
+
+assert(length(dffCell)==length(tbytDat))
+assert(length(dffsmCell)==length(tbytDat))
 
 % do additional alignments
 for tt = 1:length(tbytDat)
@@ -112,7 +120,9 @@ make_dff_videos_auditory_selectFrames(tbytDat, filePathTrials, frameRate, 4, [0 
 
 % save tbytDat without dffs
 tbytDat = rmfield(tbytDat, {'dff', 'dffsm'});
-save(fullfile(parentDir, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
+save(fullfile(filePath, 'Matfiles', [header, '_tbytDat_dff']), 'tbytDat')
+save(fullfile(filePath, 'Matfiles', [header, '_dffCollect']), 'dffCell', '-v7.3')
+save(fullfile(filePath, 'Matfiles', [header, '_dffsmCollect']), 'dffsmCell', '-v7.3')
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function p = parse_postprocessing(filePath, vargs)

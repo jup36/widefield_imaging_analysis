@@ -33,9 +33,9 @@ xlabel('Time (s)'); ylabel('xcorr'); set(gca, 'TickDir', 'out', 'XTick', -2000:1
 exampleTrials = [1, 10, 11, 21, 26];
 x1 = 1;
 figure; hold on;
-for tt = 1:length(exampleTrials)
+for j = 1:length(exampleTrials)
 
-    t = exampleTrials(tt);
+    t = exampleTrials(j);
     licks = x1+find(rez.lickOnTfBin{t, 1});
     xend = x1+length(rez.dffsOnTfItpM1{t, 1})-1;
 
@@ -89,7 +89,7 @@ xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:.5:4, 'TickDir', 'out', 
 %% hit first licks (M1)
 hitFstLickDffM1 = cellWithNonEmptyColumns(rez.hitDffFirstLick.m1);
 hitFstLickDffM1Ts = cellfun(@(a) linspace(-1, 1, length(a)), hitFstLickDffM1(:, 2), 'UniformOutput', false);
-[hitFstLickDffM1Itp, hitFstLickDffM1ItpTs] = temporalAlignInterp1(hitFstLickDffM1 (:, 1), hitFstLickDffM1Ts);
+[hitFstLickDffM1Itp, hitFstLickDffM1ItpTs] = temporalAlignInterp1(hitFstLickDffM1(:, 1), hitFstLickDffM1Ts);
 [rez.meanHitFstLickDff.m1, ~, rez.semHitFstLickDff.m1] = meanstdsem(cell2mat(hitFstLickDffM1Itp));
 
 plotMeanSemColor(rez.meanHitFstLickDff.m1, rez.semHitFstLickDff.m1, hitFstLickDffM1ItpTs, m1_color, {'M1'});
@@ -360,9 +360,9 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask.m
         % Find the minimum class size
         minSize = min(histcounts(y));
 
-        for tt = 1:size(Xs, 2)
+        for jj = 1:size(Xs, 2)
 
-            X = Xs(:, tt);
+            X = Xs(:, jj);
 
             for rs = 1:resample
                 % Create new variables for balanced data
@@ -397,8 +397,8 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask.m
                 YPred = predict(SVMModel, XTest);
 
                 % Evaluate performance
-                accuracy(rs, tt) = sum(YPred == YTest) / length(YTest);
-                fprintf('Finished resample #%d of bin #%d with accuracy: %.2f%%\n', rs, tt, accuracy(rs, tt) * 100);
+                accuracy(rs, jj) = sum(YPred == YTest) / length(YTest);
+                fprintf('Finished resample #%d of bin #%d with accuracy: %.2f%%\n', rs, jj, accuracy(rs, jj) * 100);
             end
         end
 
