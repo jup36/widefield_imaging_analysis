@@ -1,9 +1,8 @@
-function [tbytEvt, params, options] = rawStackProcessing(filePath, stackC, tbytEvt, options, cmosExp, params)
+function [tbytEvt, params, options] = rawStackProcessingStackByStack(filePath, stack, stackBvFrameI, tbytEvt, options, cmosExp, params)
 %This function takes the preprocessed raw image 'stack' (ome_stack) as a cell and process them
 % using the parameters specified in the options and other user defined inputs.
 % INPUT:
-%   stackC: a cell array containing preprocessed image stacks, each stack
-%       corresponds to a trial or a block of trials depending on the task and image acquisition scheme.
+%   stack: image stack (68x68xN frames). 
 %   cmosExp: timestamps for cmos exposure pulses (1st col: timestamps, 2nd col: chunk (trial or block of trial) id).
 %   options: prepro_log.mat
 %   params: parameters for stack processing
@@ -33,27 +32,28 @@ else
 end
 
 %% get signal (blue) and correction (violet) frames separately, as an option perform dff if using 'movingavg'
-for i = 1:length(stackC) % increment stacks
-    [stackS(i).stack_b, stackS(i).stack_v, stackS(i).bFrameI, stackS(i).vFrameI] = getBVframes(stackC{i});
-    %there are large transients in both signals for the first 10 seconds of the recording, likely due to LED warm up (should add 'burn in' frames in the future);
-    %this can effects downstream results so replace the first 10 seconds of both with the average of the first minute; You should remove these at the end of analysis (after timelocking to behavior/ephys)
-    stackS(i).stack_b(:,:,1:5*options.fps) = repmat(nanmean(stackS(i).stack_b(:,:,1:30*options.fps),3),1,1,5*options.fps);
-    stackS(i).stack_v(:,:,1:5*options.fps) = repmat(nanmean(stackS(i).stack_v(:,:,1:30*options.fps),3),1,1,5*options.fps);
+[stack_b, stack_v, bFrameI, vFrameI] = getBVframesWithIndexing(stack, stackBvFrameI);
+%there are large transients in both signals for the first 5 seconds of the recording, likely due to LED warm up (should add 'burn in' frames in the future);
+%this can effects downstream results so replace the first 5 seconds of both with the average of the first minute; You should remove these at the end of analysis (after timelocking to behavior/ephys)
+stack_b(:,:,1:5*options.fps) = repmat(nanmean(stack_b(:,:,1:30*options.fps),3),1,1,5*options.fps);
+stack_v(:,:,1:5*options.fps) = repmat(nanmean(stack_v(:,:,1:30*options.fps),3),1,1,5*options.fps);
 
-    % get fitted (scaled) violet stack
-    [stackS(i).stack_b, stackS(i).stack_v_fitted] = getPixelwiseScaledV(stackS(i).stack_b, stackS(i).stack_v, options);
+if nanmean(stack_b(:)) < nanmean(stack_v(:))
+    warning("V frames brighter than B frames?!")
+end
 
-    % in case calculating dff using movingavg rolling over each stack
-    if ismember(params.dffMethod, {'movingavg', 'mean', 'median', 'mode'})
-        stackB_block_dff = makeDFF(stackS(i).stack_b, options);
-        if params.bvCorrectLogic
-            stackV_block_dff = makeDFF(stackS(i).stack_v_fitted, options);
-            stackS(i).dff = stackB_block_dff-stackV_block_dff;
-        else
-            stackS(i).dff = stackB_block_dff;
-        end
+% get fitted (scaled) violet stack
+[stack_b, stack_v_fitted] = getPixelwiseScaledV(stack_b, stack_v, options);
+
+% in case calculating dff using movingavg rolling over each stack
+if ismember(params.dffMethod, {'movingavg', 'mean', 'median', 'mode'})
+    stackB_block_dff = makeDFF(stack_b, options);
+    if params.bvCorrectLogic
+        stackV_block_dff = makeDFF(stack_v_fitted, options);
+        dff = stackB_block_dff-stackV_block_dff;
+    else
+        dff = stackB_block_dff;
     end
-    fprintf('completed stackS %d/%d\n', i, length(stackC))
 end
 
 %% align frames per each trial and get trial-by-trial dff
@@ -63,10 +63,10 @@ for tt = 1:length(tbytEvt) % increment trials
         cmosExpBlock = cmosExp(cmosExp(:, 2)==cmosI, 1); % cmos timestamps of the cmosI
         pulseEdges = tbytEvt(tt).cmosExpPulsesOfTrain{1}:tbytEvt(tt).cmosExpPulsesOfTrain{end}; % edges defining cmos pulses relavant to this trial
 
-        bFrameI_trial = ismember(stackS(cmosI).bFrameI, pulseEdges); % blue frames of the cmosI that correspond to this trial
-        vFrameI_trial = ismember(stackS(cmosI).vFrameI, pulseEdges); % violet frames of the cmosI that correspond to this trial
+        bFrameI_trial = ismember(bFrameI, pulseEdges); % blue frames of the cmosI that correspond to this trial
+        vFrameI_trial = ismember(vFrameI, pulseEdges); % violet frames of the cmosI that correspond to this trial
 
-        % match frame numbers (crop)
+        % match frame numbers (crop; this must've been taken care of in the previous step)
         if sum(bFrameI_trial)>sum(vFrameI_trial)
             bFrameI_trial(find(bFrameI_trial, 1, 'last'))=false;
         elseif sum(bFrameI_trial)<sum(vFrameI_trial)
@@ -74,12 +74,12 @@ for tt = 1:length(tbytEvt) % increment trials
         end
 
         % frame ID
-        tbytEvt(tt).bFramesInTrain = stackS(cmosI).bFrameI(bFrameI_trial); % frame ID in the cmos pulse train
-        tbytEvt(tt).vFramesInTrain = stackS(cmosI).vFrameI(vFrameI_trial); % frame ID in the cmos pulse train
+        tbytEvt(tt).bFramesInTrain = bFrameI(bFrameI_trial); % frame ID in the cmos pulse train
+        tbytEvt(tt).vFramesInTrain = vFrameI(vFrameI_trial); % frame ID in the cmos pulse train
 
         % frame timestamps
-        bFrameTs_trial = cmosExpBlock(stackS(cmosI).bFrameI(bFrameI_trial)); % blue frame timestamps
-        vFrameTs_trial = cmosExpBlock(stackS(cmosI).vFrameI(vFrameI_trial)); % violet frame timestamps
+        bFrameTs_trial = cmosExpBlock(bFrameI(bFrameI_trial)); % blue frame timestamps
+        vFrameTs_trial = cmosExpBlock(vFrameI(vFrameI_trial)); % violet frame timestamps
 
         tbytEvt(tt).frameT = bFrameTs_trial; % frame timestamps (blue frames)
         tbytEvt(tt).frameTrel = tbytEvt(tt).frameT-tbytEvt(tt).evtOn; % frame timestamps relative to the event onset
@@ -87,8 +87,8 @@ for tt = 1:length(tbytEvt) % increment trials
         % get dff
         % sanity check on input parameters
         if strcmpi(params.dffMethod, 'tbytBase') % dff using the trial-by-trial baseline
-            stackB_trial = stackS(cmosI).stack_b(:, :, bFrameI_trial);
-            stackV_trial = stackS(cmosI).stack_v_fitted(:, :, vFrameI_trial); % ensure to use stack_v_fitted for proper hemodynamic correction
+            stackB_trial = stack_b(:, :, bFrameI_trial);
+            stackV_trial = stack_v_fitted(:, :, vFrameI_trial); % ensure to use stack_v_fitted for proper hemodynamic correction
 
             % make trial-by-trial dff
             if strcmpi(params.tbytBaseWinF, 'all')

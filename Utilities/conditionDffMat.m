@@ -1,7 +1,7 @@
 function [dffmat,badcols,badrows] = conditionDffMat(dff,badcols,badrows,imsize3) 
 % [dffmat,badcols,badrows] = conditionDffMat(dff,badcols,badrows,imsize3) 
 % converts to 3D (image format) from time x pxls format or vice-versa
-% accoridng to input dff dimensions. badcols and barows are list of indices
+% accoridng to input dff dimensions. badcols and badrows are list of indices
 % of cols and rows removed from time x pxls format (e.g. nan or zero from vasculature
 % and mask), in case npxl ~= nX*nY
 % imsize3 is a 3-element vector specifying the dimensions of the desired

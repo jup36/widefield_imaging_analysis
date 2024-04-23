@@ -71,6 +71,13 @@ if strcmp(p.Results.imageToUse, 'ome_stack')
         fprintf("finished loading stack file #%d/%d\n", ss, length(file_list_img))
     end
 
+    %% 
+    if 
+        combineStacksOfSameSequence(imgC, )
+
+
+    end
+
     tbytDat = rawStackProcessing(filePath, imgC, tbytDat, opts, evtInS.cmosExp, p.Results);
   
 elseif strcmp(p.Results.imageToUse, 'dff_combined')

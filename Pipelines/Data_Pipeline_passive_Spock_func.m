@@ -76,23 +76,27 @@ for cur_fold = 1:numel(folder_list_raw)
 
     %% 'Spock_Preprocessing_Pipeline.m' Create spock bash script for each file and run it
     job_id = cell(1,numel(file_list_raw));
-    % for cur_file = 1:numel(file_list_raw)
-    input_val = {ConvertMacToBucketPath(file_list_raw{1}), ConvertMacToBucketPath(opts_list{1})};
-    script_name = WriteBashScriptMac(sprintf('%d_%d', cur_fold, 1),'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"},...
-        'sbatch_time',15,'sbatch_memory',8);  % bash script to run for preprocessing
+    for cur_file = 1:numel(file_list_raw)
+        input_val = {ConvertMacToBucketPath(file_list_raw{cur_file}), ConvertMacToBucketPath(opts_list{1})};
+        script_name = WriteBashScriptMac(sprintf('%d_%d', cur_fold, 1),'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"},...
+            'sbatch_time',15,'sbatch_memory',8);  % bash script to run for preprocessing
 
-    %Run job
-    response = ssh2_command(s_conn,...
-        ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-        sprintf('sbatch %s',script_name)]);
+        % Run job
+        response = ssh2_command(s_conn,...
+            ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
+            sprintf('sbatch %s',script_name)]);
 
-    %get job id
-    job_id{cur_fold} = erase(response.command_result{1},'Submitted batch job ');
-
+        % get job id
+        job_id{cur_file} = erase(response.command_result{1},'Submitted batch job ');
+        if cur_file ~= numel(file_list_raw)
+            job_id{cur_file} = [job_id{cur_file} ','];
+        end
+    end
+    
     %% 'Spock_CombineStacksBVcorrect.m' Once each folder is done, combine all the stacks and do hemocorrection
     [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
     file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
-    script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, 1), ...
+    script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, cur_file), ...
         'Spock_CombineStacksBVcorrect',{ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_example'},{"'%s'","'%s'","'%s'"});
 
     % Run job with dependency
