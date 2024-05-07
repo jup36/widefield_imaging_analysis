@@ -15,9 +15,9 @@ function dffPostprocess_auditory_gng(filePath, varargin)
 
 p = parse_postprocessing(filePath, varargin);
 
-p = parse_postprocessing(filePath, ...
-    {'imageToUse', 'combinedStack', 'dffMethod', 'tbytBase', 'bvCorrectLogic', true, ...
-    'tbytBaseWinF', 1, 'movingWinF', 30, 'saveTbytDff', true});
+%  p = parse_postprocessing(filePath, ...
+%      {'imageToUse', 'combinedStack', 'dffMethod', 'tbytBase', 'bvCorrectLogic', true, ...
+%      'tbytBaseWinF', 1, 'movingWinF', 30, 'saveTbytDff', true});
 
 if ~ismember(p.Results.imageToUse, {'ome_stack', 'combinedStack', 'dff_combined'})
     error('Image data type needs to be specified as dff_combined or ome_stack!')
@@ -25,6 +25,7 @@ end
 
 %% whereabouts
 [~, header] = fileparts(filePath);
+
 fileBeh = GrabFiles_sort_trials('tbytDat', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh{1})
     fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
@@ -101,7 +102,9 @@ elseif strcmp(p.Results.imageToUse, 'combinedStack') % ome.stacks of same block(
     for ss = 1:length(file_list_img)
         load(file_list_img{ss}, 'combinedStack', 'bvFrameI', 'opts');
         tbytDatBlock = tbytDat([tbytDat.cmosExpTrainI] == ss);
-        tbytDatDffBlock = rawStackProcessingStackByStack(filePath, combinedStack, bvFrameI, tbytDatBlock, opts, evtInS.cmosExp, p.Results);
+        trNumAccu = (ss-1)*length(tbytDatBlock); 
+        trialNumb = trNumAccu+1:trNumAccu+length(tbytDatBlock); 
+        tbytDatDffBlock = rawStackProcessingStackByStack(filePath, combinedStack, bvFrameI, tbytDatBlock, opts, evtInS.cmosExp, trialNumb, p.Results);
 
         if isempty(tbytDatDff)
             tbytDatDff = tbytDatDffBlock;  % Initially set tbytDatDff to the first block
@@ -139,27 +142,14 @@ assert(length(dffCell)==length(tbytDat))
 assert(length(dffsmCell)==length(tbytDat))
 
 %% do additional alignments
-for tt = 1:length(tbytDat)
-    % make trial subdir
-    trSubDir = fullfile(filePathTrials, sprintf('trial_%d', tt));
-    if exist(trSubDir, 'dir') ~= 7
-        mkdir(trSubDir);
-    end
-    
-    % classify reward vs punish trials 
-    if stimopts.rewarded_stim(tt)==1
-        tbytDat(tt).rewardTrI = 1;
-    elseif stimopts.punished_stim(tt)==1
-        tbytDat(tt).punishTrI = 1;
-    end
-
+for tt = 1:length(tbytDat)    
     % timestamp each frame relative to the stim onset
     tbytDat(tt).frameStimOnI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOn);
     tbytDat(tt).frameStimOffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).evtOff);
     tbytDat(tt).frameStimI = zeros(length(tbytDat(tt).frameT), 1);
     tbytDat(tt).frameStimI(find(tbytDat(tt).frameStimOnI, 1):find(tbytDat(tt).frameStimOffI, 1), 1) = 1;
     % map temporal events to cmosExp pulses
-    tbytDat(tt).frameLickI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).licks);
+    tbytDat(tt).frameLickI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).Lick);
     tbytDat(tt).frameWaterI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).water);
     tbytDat(tt).frameAirpuffI = check_timestamp_overlap(tbytDat(tt).frameT, tbytDat(tt).airpuff); 
 end

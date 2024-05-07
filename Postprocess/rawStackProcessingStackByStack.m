@@ -1,4 +1,4 @@
-function [tbytEvt, params, options] = rawStackProcessingStackByStack(filePath, stack, stackBvFrameI, tbytEvt, options, cmosExp, params)
+function [tbytEvt, params, options] = rawStackProcessingStackByStack(filePath, stack, stackBvFrameI, tbytEvt, options, cmosExp, trNum, params)
 %This function takes the preprocessed raw image 'stack' (ome_stack) as a cell and process them
 % using the parameters specified in the options and other user defined inputs.
 % INPUT:
@@ -124,7 +124,7 @@ for tt = 1:length(tbytEvt) % increment trials
 
         % save trial-by-trial dff
         if params.saveTbytDff
-            trSubDir = fullfile(filePathTrials, sprintf('block_%d_trial_%d', tbytEvt(tt).cmosExpTrainI, tt));
+            trSubDir = fullfile(filePathTrials, sprintf('trial%d_block%d_seq%d', trNum(tt), tbytEvt(tt).cmosExpTrainI, tt));
             if exist(trSubDir, 'dir') ~= 7
                 mkdir(trSubDir);
             end

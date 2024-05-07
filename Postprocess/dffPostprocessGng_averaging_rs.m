@@ -1,4 +1,4 @@
-function dffPostprocersGng_averaging_rs(filePath)
+function dffPostprocessGng_averaging_rs(filePath)
 %filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
 % This function performs further analyses and plotting using data in
 % 'rez'(outcome from 'dffPostprocersGng_averaging.m'). 
