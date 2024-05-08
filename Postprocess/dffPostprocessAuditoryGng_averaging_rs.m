@@ -1,7 +1,7 @@
 function dffPostprocessAuditoryGng_averaging_rs(filePath)
 %filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
 % This function performs further analyses and plotting using data in
-% 'rez'(outcome from 'dffPostprocersGng_averaging.m').
+% 'rez'(outcome from 'dffPostprocessGng_averaging.m').
 %
 
 %% load rez tbytDat
@@ -10,7 +10,7 @@ load(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask.m
 load(fullfile(filePath, 'Matfiles', strcat(header, '_tbytDat_parseGng')), 'tbytDat')
 
 % user variables
-rs_color = [128 127 255]./255; 
+rs_color = [64 191 255]./255; 
 
 if exist(fullfile(filePath, 'Figure'), 'dir')~=7
     mkdir(fullfile(filePath, 'Figure'))
@@ -22,6 +22,10 @@ lickI = cellfun(@(a) ~isempty(a), {tbytDat.Lick});
 airpuffI = cellfun(@(a) ~isempty(a), {tbytDat.airpuff}); 
 goI = [tbytDat.rewardTrI]'==1; 
 nogoI = [tbytDat.punishTrI]'==1; 
+hitI = cellfun(@(a) ~isempty(a), {tbytDat.hitLicks})'; 
+missI = cell2mat({tbytDat.rewardTrI})' & cellfun(@(a) isempty(a), {tbytDat.water})'; 
+faI = cellfun(@(a) ~isempty(a), {tbytDat.faLicks})'; 
+crI = cell2mat({tbytDat.punishTrI})' & cellfun(@(a) isempty(a), {tbytDat.airpuff})'; 
 
 %% cross correlogram lick bouts and dff
 xCorrLagMat = cell2mat(rez.xcorrDffLick.rs(:, 2)); 
@@ -30,9 +34,9 @@ xCorrLag = xCorrLagMat(1, :);
 [rezRS.meanXcorrDffLick, ~, rezRS.semXcorrDffLick] = meanstdsem(cell2mat(rez.xcorrDffLick.rs(:, 1)));
 xcorrFig = plotMeanSemColor(rezRS.meanXcorrDffLick, rezRS.semXcorrDffLick, xCorrLag, rs_color, {'xcorr rs'});
 xlabel('Time (s)'); ylabel('xcorr'); set(gca, 'TickDir', 'out', 'XTick', -2000:1000:2000); grid on
-print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+print(fullfile(filePath, 'Figure', 'xcorr_Gng_lick_dff_rs.pdf'), '-dpdf', '-vector', '-bestfit')
 close(xcorrFig)
-fprintf("Procersed the xcorr between lick and dff, and saved the crorscorrelogram!\n")
+fprintf("Processed the xcorr between lick and dff, and saved the crosscorrelogram!\n")
 
 %% example lick and dff traces
 % exampleTrials = [2, 8, 15, 16, 21, 22, 111];
@@ -42,26 +46,31 @@ fprintf("Procersed the xcorr between lick and dff, and saved the crorscorrelogra
 % 
 %     t = exampleTrials(j);
 %     licks = x1+find(rez.lickOnTfBin{t, 1});
-%     xend = x1+length(rez.dffsOnTfItprs{t, 1})-1;
+%     xend = x1+length(rez.dffsOnTfItpRS{t, 1})-1;
 % 
-%     plot(x1:x1+length(rez.dffsOnTfItprs{t, 1})-1, rez.dffsOnTfItprs{t, 1}, 'Color', rs_color, 'LineWidth', 1);
+%     plot(x1:x1+length(rez.dffsOnTfItpRS{t, 1})-1, rez.dffsOnTfItpRS{t, 1}, 'Color', rs_color, 'LineWidth', 1);
 %     vertline(licks, [0 1], 'lineWidth', 1, 'alpha', 0.5);
-%     vertline(xend-length(rez.dffsOnTfItprs{t, 1})/2, ylim, 'lineWidth', 0.75, 'lineStyle', ':', 'alpha', 0.5);
+%     vertline(xend-length(rez.dffsOnTfItpRS{t, 1})/2, ylim, 'lineWidth', 0.75, 'lineStyle', ':', 'alpha', 0.5);
 % 
-%     x1 = x1 + length(rez.dffsOnTfItprs{t, 1}) + 1;
+%     x1 = x1 + length(rez.dffsOnTfItpRS{t, 1}) + 1;
 % end
 % title("dff and lick traces");
 % set(gca, 'TickDir', 'out');
 % axis tight
-%print(fullfile(filePath, 'Figure', 'dff_lickbouts_rs_example5trials.pdf'), '-dpdf', '-vector', '-bestfit')
+% print(fullfile(filePath, 'Figure', 'dff_lickbouts_rs_example5trials.pdf'), '-dpdf', '-vector', '-bestfit')
 
 %% Stim onset aligned activity (rs)
 % align dffs take the mean and sem
 % primary motor (stim onset)
 [stimOnDff_rs_itp, stimOn_timepts] = temporalAlignInterp1(rez.stimOnDffC.rs(:, 1), rez.stimOnDffC.rs(:, 2), 0.001);
 [rezRS.meanStimOnDff, ~, rezRS.semStimOnDff] = meanstdsem(cell2mat(stimOnDff_rs_itp));
-[stimOnDff_rs_go_itp, stimOn_timepts_go] = temporalAlignInterp1(rez.stimOnDffC.rs(goI, 1), rez.stimOnDffC.rs(goI, 2), 0.001);
-[stimOnDff_rs_nogo_itp, stimOn_timepts_nogo] = temporalAlignInterp1(rez.stimOnDffC.rs(nogoI, 1), rez.stimOnDffC.rs(nogoI, 2), 0.001);
+[stimOnDff_rs_go_itp, ~] = temporalAlignInterp1(rez.stimOnDffC.rs(goI, 1), rez.stimOnDffC.rs(goI, 2), 0.001);
+[stimOnDff_rs_nogo_itp, ~] = temporalAlignInterp1(rez.stimOnDffC.rs(nogoI, 1), rez.stimOnDffC.rs(nogoI, 2), 0.001);
+
+[stimOnDff_rs_hit_itp, ~] = temporalAlignInterp1(rez.stimOnDffC.rs(hitI, 1), rez.stimOnDffC.rs(hitI, 2), 0.001);
+[stimOnDff_rs_fa_itp, ~] = temporalAlignInterp1(rez.stimOnDffC.rs(faI, 1), rez.stimOnDffC.rs(faI, 2), 0.001);
+[stimOnDff_rs_miss_itp, ~] = temporalAlignInterp1(rez.stimOnDffC.rs(missI, 1), rez.stimOnDffC.rs(missI, 2), 0.001);
+[stimOnDff_rs_cr_itp, ~] = temporalAlignInterp1(rez.stimOnDffC.rs(crI, 1), rez.stimOnDffC.rs(crI, 2), 0.001);
 
 % primary motor (stim onset) go no-go
 [rezRS.meanStimOnDffGng, rezRS.semStimOnDffGng] = trialGroupMeanSem(stimOnDff_rs_itp, {[tbytDat.rewardTrI], [tbytDat.punishTrI]});
@@ -73,27 +82,62 @@ print(fullfile(filePath, 'Figure', 'dff_cueOn_Gng_rs.pdf'), '-dpdf', '-vector', 
 close(stimOnFig)
 fprintf("Saved tone(stim)-aligned dff plot!\n")
 
-% primary motor (stim onset) go no-go (logistic regrersion)
-[X_stimOnGo, ~] = binAvg1msSpkCountMat(cell2mat(stimOnDff_rs_go_itp), 50, 50); 
-[X_stimOnNoGo, ~] = binAvg1msSpkCountMat(cell2mat(stimOnDff_rs_nogo_itp), 50, 50); 
+% primary motor (stim onset) hit vs cr
+[rezRS.meanStimOnDffHitCr, rezRS.semStimOnDffHitCr] = trialGroupMeanSem(stimOnDff_rs_itp, {hitI, crI});
+stimOnHitCrFig = plotMeanSem(rezRS.meanStimOnDffHitCr, rezRS.semStimOnDffHitCr, stimOn_timepts, {'Hit', 'CR'});
+title("Hit vs Cr rs (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(filePath, 'Figure', 'dff_cueOn_HitCr_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnHitCrFig)
+fprintf("Saved tone(stim)-aligned dff plot comparing Hit vs Cr!\n")
 
-X_stimOn_bins = stimOn_timepts(1:50:end); 
+% primary motor (stim onset) hit vs FA
+[rezRS.meanStimOnDffHitFA, rezRS.semStimOnDffHitFA] = trialGroupMeanSem(stimOnDff_rs_itp, {hitI, faI});
+stimOnHitFaFig = plotMeanSem(rezRS.meanStimOnDffHitFA, rezRS.semStimOnDffHitFA, stimOn_timepts, {'Hit', 'FA'});
+title("Hit vs FA rs (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(filePath, 'Figure', 'dff_cueOn_HitFA_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnHitFaFig)
+fprintf("Saved tone(stim)-aligned dff plot comparing Hit vs FA!\n")
 
-if length(X_stimOn_bins)-size(X_stimOnGo, 2)==1
-    X_stimOn_bins = X_stimOn_bins(1:end-1)+0.025; 
-end
+% primary motor (stim onset) Miss vs CR
+[rezRS.meanStimOnDffMissCR, rezRS.semStimOnDffMissCR] = trialGroupMeanSem(stimOnDff_rs_itp, {missI, crI});
+stimOnMissCrFig = plotMeanSem(rezRS.meanStimOnDffMissCR, rezRS.semStimOnDffMissCR, stimOn_timepts, {'Miss', 'CR'});
+title("Miss vs CR rs (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(filePath, 'Figure', 'dff_cueOn_MissCR_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnMissCrFig)
+fprintf("Saved tone(stim)-aligned dff plot comparing Miss vs CR!\n")
 
-arsert(size(X_stimOnGo, 2)==size(X_stimOnNoGo, 2))
+% primary motor (stim onset) FA vs CR
+[rezRS.meanStimOnDffFaCR, rezRS.semStimOnDffFaCR] = trialGroupMeanSem(stimOnDff_rs_itp, {faI, crI});
+stimOnFaCrFig = plotMeanSem(rezRS.meanStimOnDffFaCR, rezRS.semStimOnDffFaCR, stimOn_timepts, {'FA', 'CR'});
+title("FA vs CR rs (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(filePath, 'Figure', 'dff_cueOn_FaCR_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnFaCrFig)
+fprintf("Saved tone(stim)-aligned dff plot comparing Miss vs CR!\n")
 
-% train and test svm
-Xs = [X_stimOnGo; X_stimOnNoGo];
-y = [ones(size(X_stimOnGo, 1), 1)*1; ones(size(X_stimOnNoGo, 1), 1)*2];
-rezRS.stimOnGoNogoSvm = multiClass_svm_peth(Xs, y, 10);
-rezRS.stimOnGoNogoSvmTs = X_stimOn_bins; 
-rezRS.stimOnGoNogoNb = multiClass_naiveBayesClassifier_peth(Xs, y, 10);
-rezRS.stimOnGoNogoNbTs = X_stimOn_bins; 
+% rs (stim onset) go vs no-go (train classifier)
+[rezRS.stimOnGoNogoSvm, rezRS.stimOnGoNogoSvmTs, rezRS.stimOnGoNogoNb, rezRS.stimOnGoNogoNbTs] = trainDffClassifier(stimOnDff_rs_go_itp, stimOnDff_rs_nogo_itp, stimOn_timepts, 50, 50, 10); 
 
-fprintf("Completed cueOn-aligned dff and clarsification of go vs nogo trials!\n")
+% rs (stim onset) hit vs CR (train classifier)
+[rezRS.stimOnHitCrSvm, rezRS.stimOnHitCrSvmTs, rezRS.stimOnHitCrNb, rezRS.stimOnHitCrNbTs] = trainDffClassifier(stimOnDff_rs_hit_itp, stimOnDff_rs_cr_itp, stimOn_timepts, 50, 50, 10); 
+
+% rs (stim onset) hit vs FA (train classifier)
+[rezRS.stimOnHitFaSvm, rezRS.stimOnHitFaSvmTs, rezRS.stimOnHitFaNb, rezRS.stimOnHitFaNbTs] = trainDffClassifier(stimOnDff_rs_hit_itp, stimOnDff_rs_fa_itp, stimOn_timepts, 50, 50, 10); 
+
+% rs (stim onset) hit vs Miss (train classifier)
+[rezRS.stimOnHitMissSvm, rezRS.stimOnHitMissSvmTs, rezRS.stimOnHitMissNb, rezRS.stimOnHitMissNbTs] = trainDffClassifier(stimOnDff_rs_hit_itp, stimOnDff_rs_miss_itp, stimOn_timepts, 50, 50, 10); 
+
+% rs (stim onset) hit vs Miss (train classifier)
+[rezRS.stimOnMissCrSvm, rezRS.stimOnMissCrSvmTs, rezRS.stimOnMissCrNb, rezRS.stimOnMissCrNbTs] = trainDffClassifier(stimOnDff_rs_miss_itp, stimOnDff_rs_cr_itp, stimOn_timepts, 50, 50, 10); 
+
+fprintf("Completed cueOn-aligned dff and classification of trial types!\n")
 
 %% iti licks (rs) Technically there's no ITI licks with the retractable spout
 % itiLickDffrs = flatCell(rez.itiLickDff.rs); % unnest the cell arrays
@@ -112,7 +156,7 @@ postStimLickDffrsTs = cellfun(@(a) linspace(-1, 1, length(a)), postStimLickDffrs
 [rezRS.meanPostStimLickDff, ~, rezRS.semPostStimLickDff] = meanstdsem(cell2mat(postStimLickDffrsItp));
 
 postStimLickFig = plotMeanSemColor(rezRS.meanPostStimLickDff, rezRS.semPostStimLickDff, postStimLickDffrsItpTs, rs_color, {'rs'});
-title("lick during ITI");
+title("postStim licks");
 xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:.5:4, 'TickDir', 'out', 'YTick', -3:0.1:3); xlim([-1 1]); %ylim([-.3 .3])
 print(fullfile(filePath, 'Figure', 'dff_postStimLick_Gng_rs.pdf'), '-dpdf', '-vector', '-bestfit')
 close(postStimLickFig)
@@ -148,12 +192,12 @@ fprintf("Saved firstWater-aligned dff plot!\n")
 if isfield(rez, 'firstAirpuff')
     fstAirDffrs = cellWithNonEmptyColumns(rez.firstAirpuff.rs);
     fstAirDffrsTs = cellfun(@(a) linspace(-1, 1, length(a)), fstAirDffrs(:, 2), 'UniformOutput', false);
-    [fstAirDffrsItp, fstAirDffrsItpTs] = temporalAlignInterp1(fstAirDffrs (:, 1), fstAirDffrsTs);
+    [fstAirDffrsItp, fstAirDffrsItpTs] = temporalAlignInterp1(fstAirDffrs (:, 1), fstAirDffrsTs, 0.001);
     [rezRS.meanFstAirDff, ~, rezRS.semFstAirDff] = meanstdsem(cell2mat(fstAirDffrsItp));
 
     fstAirFig = plotMeanSemColor(rezRS.meanFstAirDff, rezRS.semFstAirDff, fstAirDffrsItpTs, rs_color, {'rs'});
     title("Air (first)");
-    xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:.5:4, 'TickDir', 'out', 'YTick', -3:0.2:3); xlim([-1 1]); ylim([-0.8 0.8])
+    xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:.5:4, 'TickDir', 'out', 'YTick', -3:0.2:3); xlim([-1 1]); %ylim([-0.8 0.8])
 
     print(fullfile(filePath, 'Figure', 'dff_firstAirpuff_rs.pdf'), '-dpdf', '-vector', '-bestfit')
     close(fstAirFig)
@@ -195,47 +239,34 @@ xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:.5:4, 'TickDir', 'out', 
 print(fullfile(filePath, 'Figure', 'dff_lick_Hit_Fa_postStim_baseSub_rs.pdf'), '-dpdf', '-vector', '-bestfit')
 close(hitFaPostStimFig_baseSub)
 
-%% train svm to clarsify licks at different task epochs
-[X_hit, ~] = binAvg1msSpkCountMat(cell2mat(hitFstLickDffrsItp), 50, 50); 
-[X_fa, ~] = binAvg1msSpkCountMat(cell2mat(faFstLickDffrsItp), 50, 50); 
-
-X_hit_bins = hitFstLickDffrsItpTs(1:50:end); 
-if length(X_hit_bins)-size(X_hit, 2)==1
-    X_hit_bins = X_hit_bins(1:end-1)+0.025; 
-end
+%% train svm to classify licks at different task epochs
+% rs (stim onset) go vs no-go (train classifier)
+[rezRS.lickHitFaSvm, rezRS.lickHitFaSvmTs, rezRS.lickHitFaNb, rezRS.lickHitFaNbTs, X_hit, X_fa] = trainDffClassifier(hitFstLickDffrsItp, faFstLickDffrsItp, hitFstLickDffrsItpTs, 50, 50, 10); 
 
 % imagesc the hit and fa trials dff
-X_hit_fig = imagescWithTimeInfo(smooth2a(X_hit, 0, 1), X_hit_bins); 
+X_hit_fig = imagescWithTimeInfo(smooth2a(X_hit, 0, 1), rezRS.lickHitFaSvmTs); 
 set(gca, 'XTick', -2:.5:4, 'TickDir', 'out');
-clim([-0.5 0.5])
+clim([-0.7 0.7])
 print(fullfile(filePath, 'Figure', 'dff_hit_timeBin_by_trial_rs.pdf'), '-dpdf', '-vector', '-bestfit')
 close(X_hit_fig)
 
-X_fa_fig = imagescWithTimeInfo(smooth2a(X_fa, 0, 1), X_hit_bins); 
+X_fa_fig = imagescWithTimeInfo(smooth2a(X_fa, 0, 1), rezRS.lickHitFaSvmTs); 
 set(gca, 'XTick', -2:.5:4, 'TickDir', 'out');
-clim([-0.5 0.5])
+clim([-0.7 0.7])
 print(fullfile(filePath, 'Figure', 'dff_fa_timeBin_by_trial_rs.pdf'), '-dpdf', '-vector', '-bestfit')
 close(X_fa_fig)
 
-% train and test svm
-Xs = [X_hit; X_fa];
-y = [ones(size(X_hit, 1), 1)*1; ones(size(X_fa, 1), 1)*2];
-rezRS.lickHitFaSvm = multiClass_svm_peth(Xs, y, 10);
-rezRS.lickHitFaSvmTs = X_hit_bins; 
-rezRS.lickHitFaNb = multiClass_naiveBayesClassifier_peth(Xs, y, 10);
-rezRS.lickHitFaNbTs = X_hit_bins; 
-
-%% MissCueOn (rs)
+%% Miss CueOn (rs)
 % primary motor (stim onset) go no-go
 missCueI = [tbytDat.rewardTrI] & ~waterI & ~lickI;  
-[rezRS.meanStimOnMirsDff, rezRS.semStimOnMirsDff] = trialGroupMeanSem(stimOnDff_rs_itp, {missCueI});
-stimOnMirsFig = plotMeanSem(rezRS.meanStimOnMirsDff, rezRS.semStimOnMirsDff, stimOn_timepts, {'rs miss'});
-title("Go Missrs (cue onset at time=0)");
+[rezRS.meanStimOnMissDff, rezRS.semStimOnMissDff] = trialGroupMeanSem(stimOnDff_rs_itp, {missCueI});
+stimOnMissFig = plotMeanSem(rezRS.meanStimOnMissDff, rezRS.semStimOnMissDff, stimOn_timepts, {'rs miss'});
+title("Go Miss rs (cue onset at time=0)");
 set(gca, 'TickDir', 'out')
 xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
-print(fullfile(filePath, 'Figure', 'dff_cueOn_goMirs_rs.pdf'), '-dpdf', '-vector', '-bestfit')
-close(stimOnMirsFig)
-fprintf("Saved tone(stim)-aligned dff of Misstrials!\n")
+print(fullfile(filePath, 'Figure', 'dff_cueOn_goMiss_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnMissFig)
+fprintf("Saved tone(stim)-aligned dff of Miss trials!\n")
 
 %% CR CueOn (rs)
 % primary motor (stim onset) go no-go
@@ -260,16 +291,16 @@ fprintf("Saved tone(stim)-aligned dff of Correct Rejection trials!\n")
 % xlim([-2 2])
 % print(fullfile(filePath, 'Figure', 'dff_cueOn_Collect.pdf'), '-dpdf', '-vector', '-bestfit')
 
-%% plot clarsification accuracy
+%% plot classification accuracy
 % plotMeanSem(smooth2a([rez.logitGngCueOnrs; rez.logitGngCueOnRS; rez.logitGngCueOnS1; rez.logitGngCueOnRs; rez.logitGngCueOnV], 0, 2), ...
 %     zeros(5, length(stimOn_timepts)), stimOn_timepts, {'rs', 'RS', 'S1', 'RS', 'V'});
-% title("Crors-validated clarsification accuracy")
+% title("Cross-validated classification accuracy")
 % xlabel('Time (s)')
-% ylabel('Clarsification Accuracy')
+% ylabel('Classification Accuracy')
 % set(gca, 'XTick', -2:1:4, 'YTick', -1:0.1:1, 'TickDir', 'out')
 % xlim([-2 2])
 % ylim([0.45 0.85])
-% print(fullfile(filePath, 'Figure', 'logisticRegrersion_Gng_cueOn_Collect.pdf'), '-dpdf', '-vector', '-bestfit')
+% print(fullfile(filePath, 'Figure', 'logisticRegression_Gng_cueOn_Collect.pdf'), '-dpdf', '-vector', '-bestfit')
 
 % baseline dff image
 % rez.meanBaseDffImgMotor = nanmean(cell2mat(reshape(rwdDffC_motor(:, 3), [1, 1, length(tbytDat)])), 3);
@@ -329,8 +360,8 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask_r
 
 
     function [mRez, sRez] = trialGroupMeanSem(tbytPsthC, groupC)
-        % 'tbytPsthC' contains trial-by-trial data in each cell (it is arsumed that data are temporally aligned acrors trials already).
-        % 'groupC' contains logical for each grouping, logicals are arsumed to be of same lengths as the number of trials.
+        % 'tbytPsthC' contains trial-by-trial data in each cell (it is assumed that data are temporally aligned across trials already).
+        % 'groupC' contains logical for each grouping, logicals are assumed to be of same lengths as the number of trials.
         % 'mRez' returns the group mean for each group logical per row.
         % 'sRez' returns the group sem for each group logical per row.
 
@@ -370,10 +401,10 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask_r
 
         Y = Y(:);
 
-        % Determine the number of samples for each clars in the test set
-        numClars0 = sum(Y == 0);
-        numClars1 = sum(Y == 1);
-        testSetSize = min(numClars0, numClars1) / 2; % Or any other criterion
+        % Determine the number of samples for each class in the test set
+        numClass0 = sum(Y == 0);
+        numClass1 = sum(Y == 1);
+        testSetSize = min(numClass0, numClass1) / 2; % Or any other criterion
 
         % Randomly sample for the test set
         indices0 = find(Y == 0);
@@ -399,7 +430,7 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask_r
 
     end
 
-    function accuracy = multiClars_svm_peth(Xs, y, resample)
+    function accuracy = multiClass_svm_peth(Xs, y, resample)
         % Xs = [cell2mat(hitFstLickDffSsItp); cell2mat(faFstLickDffSsItp); cell2mat(postStimLickDffSsItp); cell2mat(itiLickDffSsItp)];
         % y = [ones(size(hitFstLickDffSsItp, 1), 1)*1; ones(size(faFstLickDffSsItp, 1), 1)*2; ones(size(postStimLickDffSsItp, 1), 1)*3; ones(size(itiLickDffSsItp, 1), 1)*4];
         % resample = 10;
@@ -407,7 +438,7 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask_r
 
         accuracy = zeros(resample, size(Xs, 2));
 
-        % Find the minimum clars size
+        % Find the minimum class size
         minSize = min(histcounts(y));
 
         for jj = 1:size(Xs, 2)
@@ -419,12 +450,12 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask_r
                 X_balanced = [];
                 y_balanced = [];
 
-                % Balance each clars
-                uniqueClarses = unique(y);
-                for i = 1:length(uniqueClarses)
-                    clarsIndices = find(y == uniqueClarses(i));
-                    % Randomly select 'minSize' samples from each clars
-                    randIndices = randsample(clarsIndices, minSize);
+                % Balance each class
+                uniqueClasses = unique(y);
+                for i = 1:length(uniqueClasses)
+                    classIndices = find(y == uniqueClasses(i));
+                    % Randomly select 'minSize' samples from each class
+                    randIndices = randsample(classIndices, minSize);
                     X_balanced = [X_balanced; X(randIndices, :)];
                     y_balanced = [y_balanced; y(randIndices)];
                 end
@@ -439,11 +470,11 @@ save(fullfile(filePath, 'Matfiles', strcat(header, '_dff_evtAligned_regionMask_r
                 XTest  = X_balanced(idx,:);
                 YTest  = y_balanced(idx,:);
 
-                % Step 4: Train SVM Clarsifier
+                % Step 4: Train SVM Classifier
                 SVMModel = fitcecoc(XTrain, YTrain);
                 %SVMModel = fitcnb(XTrain, YTrain);
 
-                % Step 5: Test the Clarsifier
+                % Step 5: Test the Classifier
                 YPred = predict(SVMModel, XTest);
 
                 % Evaluate performance

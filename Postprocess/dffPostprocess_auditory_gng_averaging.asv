@@ -124,7 +124,7 @@ for t = 1:length(tbytDat)
     if ~isempty(tbytDat(t).water)
         firstWater = tbytDat(t).water(1) - tbytDat(t).evtOn;
         % m1
-        [rez.firstWater.m1{t, 1}, rez.firstWater.m1{t, 2}] = alignToEvent(dffM1, firstWater, frT, [-1 1]); % consume lick 1st in the bout
+        [rez.firstWater.m1{t, 1}, rez.firstWater.m1{t, 1}] = alignToEvent(dffM1, firstWater, frT, [-1 1]); % consume lick 1st in the bout
         % m2
         [rez.firstWater.m2{t, 1}, rez.firstWater.m2{t, 2}] = alignToEvent(dffM2, firstWater, frT, [-1 1]); % consume lick 1st in the bout
         % ss
