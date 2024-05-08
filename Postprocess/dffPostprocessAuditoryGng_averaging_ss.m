@@ -92,6 +92,16 @@ print(fullfile(filePath, 'Figure', 'dff_cueOn_HitCr_ss.pdf'), '-dpdf', '-vector'
 close(stimOnHitCrFig)
 fprintf("Saved tone(stim)-aligned dff plot comparing Hit vs Cr!\n")
 
+% primary motor (stim onset) hit vs miss
+[rezSS.meanStimOnDffHitMiss, rezSS.semStimOnDffHitMiss] = trialGroupMeanSem(stimOnDff_ss_itp, {hitI, missI});
+stimOnHitMissFig = plotMeanSem(rezSS.meanStimOnDffHitMiss, rezSS.semStimOnDffHitMiss, stimOn_timepts, {'Hit', 'Miss'});
+title("Hit vs Miss ss (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(filePath, 'Figure', 'dff_cueOn_HitMiss_ss.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnHitMissFig)
+fprintf("Saved tone(stim)-aligned dff plot comparing Hit vs Miss!\n")
+
 % primary motor (stim onset) hit vs FA
 [rezSS.meanStimOnDffHitFA, rezSS.semStimOnDffHitFA] = trialGroupMeanSem(stimOnDff_ss_itp, {hitI, faI});
 stimOnHitFaFig = plotMeanSem(rezSS.meanStimOnDffHitFA, rezSS.semStimOnDffHitFA, stimOn_timepts, {'Hit', 'FA'});
@@ -122,7 +132,7 @@ print(fullfile(filePath, 'Figure', 'dff_cueOn_FaCR_ss.pdf'), '-dpdf', '-vector',
 close(stimOnFaCrFig)
 fprintf("Saved tone(stim)-aligned dff plot comparing Miss vs CR!\n")
 
-% ss (stim onset) go vs no-go (train classifier)
+% ss (stim onset) go vs no-go cr(train classifier)
 [rezSS.stimOnGoNogoSvm, rezSS.stimOnGoNogoSvmTs, rezSS.stimOnGoNogoNb, rezSS.stimOnGoNogoNbTs] = trainDffClassifier(stimOnDff_ss_go_itp, stimOnDff_ss_nogo_itp, stimOn_timepts, 50, 50, 10); 
 % figure; plot(rezSS.stimOnGoNogoSvmTs, mean(rezSS.stimOnGoNogoSvm))
 
@@ -141,7 +151,6 @@ fprintf("Saved tone(stim)-aligned dff plot comparing Miss vs CR!\n")
 % ss (stim onset) Miss vs CR (train classifier)
 [rezSS.stimOnMissCrSvm, rezSS.stimOnMissCrSvmTs, rezSS.stimOnMissCrNb, rezSS.stimOnMissCrNbTs] = trainDffClassifier(stimOnDff_ss_miss_itp, stimOnDff_ss_cr_itp, stimOn_timepts, 50, 50, 10); 
 % figure; plot(rezSS.stimOnMissCrSvmTs, mean(rezSS.stimOnMissCrSvm))
-
 fprintf("Completed cueOn-aligned dff and classification of trial types!\n")
 
 %% iti licks (ss) Technically there's no ITI licks with the retractable spout
@@ -180,7 +189,7 @@ print(fullfile(filePath, 'Figure', 'dff_hitFirstLick_Gng_ss.pdf'), '-dpdf', '-ve
 close(hitFstLickFig)
 fprintf("Saved hitFirstLick-aligned dff plot!\n")
 
-%% first water (ss)
+%% firstwater (ss)
 fstWaterDffss = cellWithNonEmptyColumns(rez.firstWater.ss);
 fstWaterDffssTs = cellfun(@(a) linspace(-1, 1, length(a)), fstWaterDffss(:, 2), 'UniformOutput', false);
 [fstWaterDffssItp, fstWaterDffssItpTs] = temporalAlignInterp1(fstWaterDffss (:, 1), fstWaterDffssTs, 0.001);
@@ -193,7 +202,7 @@ print(fullfile(filePath, 'Figure', 'dff_firstWater_ss.pdf'), '-dpdf', '-vector',
 close(firstWaterFig)
 fprintf("Saved firstWater-aligned dff plot!\n")
 
-%% first air (ss)
+%% firstair (ss)
 if isfield(rez, 'firstAirpuff')
     fstAirDffss = cellWithNonEmptyColumns(rez.firstAirpuff.ss);
     fstAirDffssTs = cellfun(@(a) linspace(-1, 1, length(a)), fstAirDffss(:, 2), 'UniformOutput', false);
@@ -209,7 +218,7 @@ if isfield(rez, 'firstAirpuff')
     fprintf("Saved firstAir-aligned dff plot!\n")
 end
 
-%% FA first licks (ss)
+%% FA firstlicks (ss)
 faFstLickDffss = cellWithNonEmptyColumns(rez.faDffFirstLick.ss);
 faFstLickDffssTs = cellfun(@(a) linspace(-1, 1, length(a)), faFstLickDffss(:, 2), 'UniformOutput', false);
 [faFstLickDffssItp, faFstLickDffssItpTs] = temporalAlignInterp1(faFstLickDffss (:, 1), faFstLickDffssTs, 0.001);
@@ -252,7 +261,7 @@ close(hitFaPostStimFig_baseSub)
 % imagesc the hit and fa trials dff
 X_hit_fig = imagescWithTimeInfo(smooth2a(X_hit, 0, 1), rezSS.lickHitFaSvmTs); 
 set(gca, 'XTick', -2:.5:4, 'TickDir', 'out');
-clim([-0.5 0.5])
+clim([-0.7 0.7])
 print(fullfile(filePath, 'Figure', 'dff_hit_timeBin_by_trial_ss.pdf'), '-dpdf', '-vector', '-bestfit')
 close(X_hit_fig)
 

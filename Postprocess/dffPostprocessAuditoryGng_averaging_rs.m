@@ -92,6 +92,16 @@ print(fullfile(filePath, 'Figure', 'dff_cueOn_HitCr_rs.pdf'), '-dpdf', '-vector'
 close(stimOnHitCrFig)
 fprintf("Saved tone(stim)-aligned dff plot comparing Hit vs Cr!\n")
 
+% primary motor (stim onset) hit vs miss
+[rezRS.meanStimOnDffHitMiss, rezRS.semStimOnDffHitMiss] = trialGroupMeanSem(stimOnDff_rs_itp, {hitI, missI});
+stimOnHitMissFig = plotMeanSem(rezRS.meanStimOnDffHitMiss, rezRS.semStimOnDffHitMiss, stimOn_timepts, {'Hit', 'Miss'});
+title("Hit vs Miss rs (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(filePath, 'Figure', 'dff_cueOn_HitMiss_rs.pdf'), '-dpdf', '-vector', '-bestfit')
+close(stimOnHitMissFig)
+fprintf("Saved tone(stim)-aligned dff plot comparing Hit vs Miss!\n")
+
 % primary motor (stim onset) hit vs FA
 [rezRS.meanStimOnDffHitFA, rezRS.semStimOnDffHitFA] = trialGroupMeanSem(stimOnDff_rs_itp, {hitI, faI});
 stimOnHitFaFig = plotMeanSem(rezRS.meanStimOnDffHitFA, rezRS.semStimOnDffHitFA, stimOn_timepts, {'Hit', 'FA'});
@@ -122,21 +132,25 @@ print(fullfile(filePath, 'Figure', 'dff_cueOn_FaCR_rs.pdf'), '-dpdf', '-vector',
 close(stimOnFaCrFig)
 fprintf("Saved tone(stim)-aligned dff plot comparing Miss vs CR!\n")
 
-% rs (stim onset) go vs no-go (train classifier)
+% rs (stim onset) go vs no-go cr(train classifier)
 [rezRS.stimOnGoNogoSvm, rezRS.stimOnGoNogoSvmTs, rezRS.stimOnGoNogoNb, rezRS.stimOnGoNogoNbTs] = trainDffClassifier(stimOnDff_rs_go_itp, stimOnDff_rs_nogo_itp, stimOn_timepts, 50, 50, 10); 
+% figure; plot(rezRS.stimOnGoNogoSvmTs, mean(rezRS.stimOnGoNogoSvm))
 
 % rs (stim onset) hit vs CR (train classifier)
 [rezRS.stimOnHitCrSvm, rezRS.stimOnHitCrSvmTs, rezRS.stimOnHitCrNb, rezRS.stimOnHitCrNbTs] = trainDffClassifier(stimOnDff_rs_hit_itp, stimOnDff_rs_cr_itp, stimOn_timepts, 50, 50, 10); 
+% figure; plot(rezRS.stimOnHitCrSvmTs, mean(rezRS.stimOnHitCrSvm))
 
 % rs (stim onset) hit vs FA (train classifier)
 [rezRS.stimOnHitFaSvm, rezRS.stimOnHitFaSvmTs, rezRS.stimOnHitFaNb, rezRS.stimOnHitFaNbTs] = trainDffClassifier(stimOnDff_rs_hit_itp, stimOnDff_rs_fa_itp, stimOn_timepts, 50, 50, 10); 
+% figure; plot(rezRS.stimOnHitFaSvmTs, mean(rezRS.stimOnHitFaSvm))
 
 % rs (stim onset) hit vs Miss (train classifier)
 [rezRS.stimOnHitMissSvm, rezRS.stimOnHitMissSvmTs, rezRS.stimOnHitMissNb, rezRS.stimOnHitMissNbTs] = trainDffClassifier(stimOnDff_rs_hit_itp, stimOnDff_rs_miss_itp, stimOn_timepts, 50, 50, 10); 
+% figure; plot(rezRS.stimOnHitMissSvmTs, mean(rezRS.stimOnHitMissSvm))
 
-% rs (stim onset) hit vs Miss (train classifier)
+% rs (stim onset) Miss vs CR (train classifier)
 [rezRS.stimOnMissCrSvm, rezRS.stimOnMissCrSvmTs, rezRS.stimOnMissCrNb, rezRS.stimOnMissCrNbTs] = trainDffClassifier(stimOnDff_rs_miss_itp, stimOnDff_rs_cr_itp, stimOn_timepts, 50, 50, 10); 
-
+% figure; plot(rezRS.stimOnMissCrSvmTs, mean(rezRS.stimOnMissCrSvm))
 fprintf("Completed cueOn-aligned dff and classification of trial types!\n")
 
 %% iti licks (rs) Technically there's no ITI licks with the retractable spout
@@ -242,6 +256,8 @@ close(hitFaPostStimFig_baseSub)
 %% train svm to classify licks at different task epochs
 % rs (stim onset) go vs no-go (train classifier)
 [rezRS.lickHitFaSvm, rezRS.lickHitFaSvmTs, rezRS.lickHitFaNb, rezRS.lickHitFaNbTs, X_hit, X_fa] = trainDffClassifier(hitFstLickDffrsItp, faFstLickDffrsItp, hitFstLickDffrsItpTs, 50, 50, 10); 
+% figure; plot(rezRS.lickHitFaSvmTs, mean(rezRS.lickHitFaSvm))
+
 
 % imagesc the hit and fa trials dff
 X_hit_fig = imagescWithTimeInfo(smooth2a(X_hit, 0, 1), rezRS.lickHitFaSvmTs); 

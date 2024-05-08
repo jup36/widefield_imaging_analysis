@@ -245,7 +245,7 @@ print(fullfile(filePath, 'Figure', 'dff_lick_Hit_Fa_postStim_baseSub_v1.pdf'), '
 close(hitFaPostStimFig_baseSub)
 
 %% train svm to classify licks at different task epochs
-% v1 (stim onset) go vs no-go (train classifier)
+% v1 hit lick vs FA lick (train classifier)
 [rezV1.lickHitFaSvm, rezV1.lickHitFaSvmTs, rezV1.lickHitFaNb, rezV1.lickHitFaNbTs, X_hit, X_fa] = trainDffClassifier(hitFstLickDffv1Itp, faFstLickDffv1Itp, hitFstLickDffv1ItpTs, 50, 50, 10); 
 % figure; plot(rezV1.lickHitFaSvmTs, mean(rezV1.lickHitFaSvm))
 
