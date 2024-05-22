@@ -1,0 +1,66 @@
+%% whereabouts
+filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042224'; 
+[~, header] = fileparts(filePath);
+headerParts = regexp(header, '_', 'split');  % Split the string at the underscore
+mouseId = headerParts{1};  % Part before the underscore
+date = headerParts{2};  % Part after the underscore
+
+%% load and prep data 
+m1Path = GrabFiles_sort_trials('_regionMask_m1', 0, {fullfile(filePath, 'Matfiles')});
+m2Path = GrabFiles_sort_trials('_regionMask_m2', 0, {fullfile(filePath, 'Matfiles')});
+ssPath = GrabFiles_sort_trials('_regionMask_ss', 0, {fullfile(filePath, 'Matfiles')});
+rsPath = GrabFiles_sort_trials('_regionMask_rs', 0, {fullfile(filePath, 'Matfiles')});
+v1Path = GrabFiles_sort_trials('_regionMask_v1', 0, {fullfile(filePath, 'Matfiles')});
+
+load(m1Path{1}, 'rezM1'); 
+load(m2Path{1}, 'rezM2'); 
+load(ssPath{1}, 'rezSS'); 
+load(rsPath{1}, 'rezRS'); 
+load(v1Path{1}, 'rezV1'); 
+
+% prepare color
+%cool = colormap('cool'); % for Go/No-Go
+m1_color = [0 255 255]./255; 
+m2_color = [64 1 255]./255; 
+
+
+%% generate plots
+% cue-aligned go vs nogo classification dffs
+assert(isequal(rezRS_early.stimOnGoNogoSvmTs, rezRS_late.stimOnGoNogoSvmTs))
+plotMeanWithoutSem([mean(rezRS_early.stimOnGoNogoSvm); mean(rezRS_late.stimOnGoNogoSvm)], ... 
+    rezRS_early.stimOnGoNogoSvmTs, {header1, header2})
+title("early vs late rs go-nogo SVM (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(figSaveDir, strcat(mouseId1, '_', date1, '_', date2, '_dff_cueAlign_gonogo_svm_early_late_rs.pdf')), '-dpdf', '-vector', '-bestfit')
+
+% cue-aligned hit vs FA classification dffs
+assert(isequal(rezRS_early.stimOnHitFaSvmTs, rezRS_late.stimOnHitFaSvmTs))
+plotMeanWithoutSem([mean(rezRS_early.stimOnHitFaSvm); mean(rezRS_late.stimOnHitFaSvm)], ... 
+    rezRS_early.stimOnHitFaSvmTs, {header1, header2})
+title("early vs late rs hitVsFa SVM (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 5]); %ylim([-1 1])
+print(fullfile(figSaveDir, strcat(mouseId1, '_', date1, '_', date2, '_dff_cueAlign_hitFA_svm_early_late_rs.pdf')), '-dpdf', '-vector', '-bestfit')
+
+% lick-aligned hit vs FA classification dffs
+assert(isequal(rezRS_early.lickHitFaSvmTs, rezRS_late.lickHitFaSvmTs))
+plotMeanWithoutSem([mean(rezRS_early.lickHitFaSvm); mean(rezRS_late.lickHitFaSvm)], ... 
+    rezRS_early.lickHitFaSvmTs, {header1, header2})
+title("early vs late rs hitVsFa SVM (cue onset at time=0)");
+set(gca, 'TickDir', 'out')
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -1:0.5:1, 'TickDir', 'out', 'YTick', -1:0.1:5); xlim([-1 1]); %ylim([-1 1])
+print(fullfile(figSaveDir, strcat(mouseId1, '_', date1, '_', date2, '_dff_lickAlign_hitFA_svm_early_late_rs.pdf')), '-dpdf', '-vector', '-bestfit')
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [dffTsItp_mean, dffTsItp_sem, dffTsItp, dffTsItpTs] = getInterpolatedMeanSemDffFromDffTsCell(dffTsCell)
+dffTsC = cellWithNonEmptyColumns(dffTsCell);
+dffTsLinC = cellfun(@(a) linspace(-1, 1, length(a)), dffTsC(:, 2), 'UniformOutput', false);
+[dffTsItp, dffTsItpTs] = temporalAlignInterp1(dffTsC(:, 1), dffTsLinC, 0.001);
+[dffTsItp_mean, ~, dffTsItp_sem] = meanstdsem(cell2mat(dffTsItp));
+
+end
+
+
+
+
