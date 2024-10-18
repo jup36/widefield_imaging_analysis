@@ -1,13 +1,13 @@
 %% whereabouts
-% filePaths = {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_041624', ...
-%              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_041824', ...
-%              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_042224', ...
-%              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_042924'}; 
+filePaths = {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_041624', ...
+             '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_041824', ...
+             '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_042224', ...
+             '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_042924'}; 
 
-filePaths = {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_041924', ...
-             '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_2_042024', ...
-             '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042224', ...
-             '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042624'}; 
+% filePaths = {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_041924', ...
+%              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_2_042024', ...
+%              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042224', ...
+%              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042624'}; 
 
 mean_stimAlignGoC = cell(length(filePaths), 2);
 sem_stimAlignGoC = cell(length(filePaths), 1);
@@ -17,12 +17,16 @@ sem_hitFstLickDff = cell(length(filePaths), 1);
 
 regions = {'m1', 'm2', 'ss', 'rs', 'v1'}; 
 
+hitLickLatencyC = cell(1, length(filePaths)); 
+waterLatencyC = cell(1, length(filePaths)); 
+headerC = cell(1,length(filePaths)); 
 
 for ff = 1:length(filePaths)
     filePath = filePaths{ff};
-    filePath_region = GrabFiles_sort_trials(strcat('_regionMask_', 'M1', 0, {fullfile(filePath, 'Matfiles')});
+    filePath_region = GrabFiles_sort_trials('_regionMask_M1', 0, {fullfile(filePath, 'Matfiles')});
 
     [~, header] = fileparts(filePath);
+    headerC{1, ff} = header; 
     headerParts = regexp(header, '_', 'split');  % Split the string at the underscore
     mouseIdC{ff,1} = headerParts{1};  % Part before the underscore
     dateC{ff,1} = headerParts{2};  % Part after the underscore
@@ -42,6 +46,17 @@ for ff = 1:length(filePaths)
     mean_hitFstLickDff_M1{ff, 1} = rezM1.meanHitFstLickDff(1, :); 
     sem_hitFstLickDff_M1{ff, 1} = rezM1.semHitFstLickDff(1, :);
     fprintf("processed file #%d\n", ff)
+    
+    % lick and water rasters 
+    [hitLickLatencyC{1, ff}, waterLatencyC{1, ff}] = hitLickRastersAuditoryGng(filePath);
+end
+
+%% lick raster plot
+pathToLickWaterRaster = GrabFiles_sort_trials('_AcrossSession_lickWaterRaster', 0, {figSaveDir});
+if isempty(pathToLickWaterRaster)
+    hitLickLatencyFig = rasterPlotLickWaterCellGroups("Lick rasters across session (cue onset at time=0)", hitLickLatencyC, ...
+        waterLatencyC, cool, [-1 5], [2 4.5], 0.7, headerC);
+    print(fullfile(figSaveDir, strcat(mouseIdC{1}, '_dff_cueOn_Hit_AcrossSession_lickWaterRaster')), '-dpdf', '-vector', '-bestfit')
 end
 
 %% plot cue-aligned go dffs

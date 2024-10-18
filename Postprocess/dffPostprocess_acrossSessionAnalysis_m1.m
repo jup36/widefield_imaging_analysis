@@ -1,4 +1,5 @@
 %% whereabouts
+
 filePath1 = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_041624'; 
 [~, header1] = fileparts(filePath1);
 header1Parts = regexp(header1, '_', 'split');  % Split the string at the underscore

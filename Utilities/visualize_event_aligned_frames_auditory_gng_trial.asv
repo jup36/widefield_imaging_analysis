@@ -1,0 +1,98 @@
+function visualize_event_aligned_frames_auditory_gng_trial(filePath, numPeriFrames, trial, varargin)
+% pethTime: peri-event time of the frames to be included in the video
+% numPeriFrames: the # of frames to be included before and after the
+%   specified event (e.g., hitLick). For example, if it's 40 it will take
+%   40 frames before and 40 frames after the event. 
+
+%p = parseInput_visualize_event_aligned_frames(filePath, 10, varargin);
+p = parseInput_visualize_event_aligned_frames(filePath, 10, trial, {'eventToAlign', 'hitLick'});
+
+%% load tbytDat
+[~, header] = fileparts(filePath);
+fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
+if isempty(fileBeh{1})
+    fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
+end
+load(fullfile(fileBeh{1}), 'tbytDat')
+
+fileParseGng = GrabFiles_sort_trials('tbytDat_parseGng', 0, {fullfile(filePath, 'Matfiles')});
+tbytDatParseGng = load(fullfile(fileParseGng{1}), 'tbytDat'); 
+tbytDatParseGng = tbytDatParseGng.('tbytDat'); 
+
+filePathTrials =  GrabFiles_sort_trials('trial', 0, {fullfile(filePath, strcat(header, '_trials'))});
+
+%% sort trials to work with
+% To match the trial number use this!
+tN = cellfun(@(x) str2double(regexp(x, 'trial(\d{1,3})', 'tokens', 'once')), filePathTrials);
+filePathTrialC = filePathTrials(ismember(tN, trial));
+filePathTrial = filePathTrialC{1}; 
+
+if isempty(filePathTrials)
+    warning('There is no trials ready to be filmed!')
+end
+
+%% sort frames to be included in the video
+if isfield(tbytDat, 'resampledVidFrameTs')
+    rsfrPeriod = mean(diff(tbytDat(trial).resampledVidFrameTs)); % resampled frame rate (50Hz downsampled from 200Hz)
+    %frameResampleRate = 1/rsfrPeriod; 
+else
+    error("resampled video timestamps are missing!!")
+end
+
+%% draw frames
+    [~, vidName] = fileparts(filePathTrial);
+
+    % Extract the number after 'trial_'
+    matchedNum = regexp(vidName, 'trial(\d+)', 'tokens');
+    % Convert the matched number from cell to double
+    trialNum = str2double(matchedNum{1}{1});
+
+    fT = tbytDat(trialNum).resampledVidFrameTs; % resampled frame time (likely downsampled)
+    
+    switch p.Results.eventToAlign 
+        case 'hitLick'
+            evtTs = tbytDatParseGng(trial).hitLicks; 
+            pethTime = evtTs + [-(rsfrPeriod*numPeriFrames) rsfrPeriod*numPeriFrames]; 
+            cropFrames = @(a) a >= min(pethTime) & a <= max(pethTime);
+    end
+
+    fTrel = fT-tbytDat(trialNum).evtOn; % resampled frame time relative to event onset (cue onset)
+
+    % map temporal events to cmosExp pulses
+    tbytDat(trialNum).faceFrameLickI = check_timestamp_overlap_adjacentFrames(fTrel, tbytDat(trialNum).Lick-tbytDat(trialNum).evtOn, 3);
+    tbytDat(trialNum).faceFrameWaterI = check_timestamp_overlap_adjacentFrames(fTrel, tbytDat(trialNum).water-tbytDat(trialNum).evtOn, 3);
+    tbytDat(trialNum).faceFrameAirpuffI = check_timestamp_overlap_adjacentFrames(fTrel, tbytDat(trialNum).airpuff-tbytDat(trialNum).evtOn, 3);
+
+    tbytDat(trialNum).pethFrameI = cropFrames(fTrel); % mark relevant frames
+    fI = tbytDat(trialNum).pethFrameI; % frame logic for
+
+    frameTrel = fTrel(fI)-evtTs; % get frame times relative to evt
+    frameLickI = tbytDat(trialNum).faceFrameLickI(fI);
+    frameWaterI = tbytDat(trialNum).faceFrameWaterI(fI);
+    frameAirpuffI = tbytDat(trialNum).faceFrameAirpuffI(fI);
+
+    % draw peri hitLick frames
+    drawEvtAlignedFaceVidFramesAuditoryGngTenFrameSeq(filePathTrial, vidName, 'hitLick', 2, fI, frameTrel, frameLickI, frameWaterI, frameAirpuffI); 
+
+    % draw all frames with cue-aligned timestamps
+    drawEvtAlignedFaceVidFramesAuditoryGngTenFrameSeq(filePathTrial, vidName, 'cueOn', 5, true(length(fTrel), 1), fTrel, ..., 
+        tbytDat(trialNum).faceFrameLickI, tbytDat(trialNum).faceFrameWaterI, tbytDat(trialNum).faceFrameAirpuffI); 
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function p = parseInput_visualize_event_aligned_frames(filePath, numPeriFrames, trial, vargs)
+        % parse input, and extract name-value pairs
+        default_eventToAlign = 'hitLick'; %
+
+        p = inputParser; % create parser object
+        addRequired(p, 'filePath');
+        addRequired(p, 'numPeriFrames');
+        addRequired(p, 'trial'); 
+       
+        addParameter(p, 'eventToAlign', default_eventToAlign);
+
+        parse(p, filePath, numPeriFrames, trial, vargs{:})
+    end
+
+
+end
+

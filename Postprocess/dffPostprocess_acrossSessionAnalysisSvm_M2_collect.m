@@ -3,7 +3,7 @@
 %              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_041824', ...
 %              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_042224', ...
 %              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA017/DA017_042924'}; 
-
+% 
 filePaths = {'/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_041924', ...
              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_2_042024', ...
              '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042224', ...
@@ -32,7 +32,7 @@ for ff = 1:length(filePaths)
     load(filePath_region{1}, 'rezM2'); 
 
     % cue-aligned go nogo
-    mean_stimOnGoNogoSvmC_M2{ff, 1} = smooth2a(mean(rezM2.stimOnGoNogoSvm), 0, 1); 
+    mean_stimOnGoNogoSvmC_M2{ff, 1} = smooth2a(mean(rezM2.stimOnGoNogoSvm), 0, 4); 
     mean_stimOnGoNogoSvmC_M2{ff, 2} = rezM2.stimOnGoNogoSvmTs; 
 
     % cue-aligned hit FA
@@ -64,31 +64,31 @@ id_dateC = cellfun(@(a, b) strcat(a, '_', b), mouseIdC, dateC, 'UniformOutput', 
 %% plot cue-aligned gng svm
 plotMeanColorC(cell2mat(mean_stimOnGoNogoSvmC_M2(:, 1)), mean_stimOnGoNogoSvmC_M2{1, 2}, learningColorC, id_dateC)
 set(gca, 'TickDir', 'out')
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.1:5); xlim([-1 5]); %ylim([-0.4 1.1])
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.05:5); xlim([-1 5]); %ylim([-0.4 1.1])
 print(fullfile(figSaveDir, strcat(mouseIdC{1}, '_dff_cueOnAligned_GoNogo_SVM_M2')), '-dpdf', '-vector', '-bestfit')
 
 %% plot cue-aligned hit fa svm
 plotMeanColorC(cell2mat(mean_stimOnHitFaSvmC_M2(:, 1)), mean_stimOnHitFaSvmC_M2{1, 2}, learningColorC, id_dateC)
 set(gca, 'TickDir', 'out')
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.1:5); xlim([-1 5]); %ylim([-0.4 1.1])
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.05:5); xlim([-1 5]); %ylim([-0.4 1.1])
 print(fullfile(figSaveDir, strcat(mouseIdC{1}, '_dff_cueOnAligned_HitFa_SVM_M2')), '-dpdf', '-vector', '-bestfit')
 
 %% plot cue-aligned hit miss svm
 plotMeanColorC(cell2mat(mean_stimOnHitMissSvmC_M2(:, 1)), mean_stimOnHitMissSvmC_M2{1, 2}, learningColorC, id_dateC)
 set(gca, 'TickDir', 'out')
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.2:5); xlim([-1 5]); %ylim([-0.4 1.1])
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.05:5); xlim([-1 5]); %ylim([-0.4 1.1])
 print(fullfile(figSaveDir, strcat(mouseIdC{1}, '_dff_cueOnAligned_HitMiss_SVM_M2')), '-dpdf', '-vector', '-bestfit')
 
 %% plot cue-aligned hit CR svm
 plotMeanColorC(cell2mat(mean_stimOnHitCrSvmC_M2(:, 1)), mean_stimOnHitCrSvmC_M2{1, 2}, learningColorC, id_dateC)
 set(gca, 'TickDir', 'out')
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.2:5); xlim([-1 5]); %ylim([-0.4 1.1])
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.05:5); xlim([-1 5]); %ylim([-0.4 1.1])
 print(fullfile(figSaveDir, strcat(mouseIdC{1}, '_dff_cueOnAligned_HitCr_SVM_M2')), '-dpdf', '-vector', '-bestfit')
 
 %% plot lick-aligned hit FA svm
 plotMeanColorC(cell2mat(mean_lickHitFaSvmC_M2(:, 1)), mean_lickHitFaSvmC_M2{1, 2}, learningColorC, id_dateC)
 set(gca, 'TickDir', 'out')
-xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.2:5); xlim([-1 1]); %ylim([-0.4 1.1])
+xlabel('Time (s)'); ylabel('DFF'); set(gca, 'XTick', -2:1:5, 'TickDir', 'out', 'YTick', -5:0.05:5); xlim([-1 1]); %ylim([-0.4 1.1])
 print(fullfile(figSaveDir, strcat(mouseIdC{1}, '_dff_lickAligned_HitFA_SVM_M2')), '-dpdf', '-vector', '-bestfit')
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

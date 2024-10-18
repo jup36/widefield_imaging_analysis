@@ -46,7 +46,7 @@ end
 %% record frames first
 downSampleFactor = 4; % default downsample factor to downsample the faceCam frames
 close all;
-for t = trials % 1:length(tbytDat) % trial
+for t = trials
     pngDir = GrabFiles_sort_trials(sprintf('trial%d_', t), 0, {filePathTrials});
     if isempty(pngDir)
         pngDir = fullfile(filePathTrials, sprintf('trial%d', t));
@@ -66,14 +66,14 @@ for t = trials % 1:length(tbytDat) % trial
     targetFaceTsLastI = find(faceCamTs(:, 1) > tbytDat(t).frameT(end), 1, 'first');
     faceFramesToRead = targetFaceTsFstI:downSampleFactor:targetFaceTsLastI; % downsampled
 
-    v = VideoReader(faceVids{faceCamI});
-    totalFaceFrames = v.Duration*v.FrameRate;
+   v = VideoReader(faceVids{faceCamI});
+   totalFaceFrames = v.Duration*v.FrameRate;
 
-    if ~isempty(targetFaceTsFstI) && ~isempty(targetFaceTsLastI) && targetFaceTsLastI <= totalFaceFrames
+   if ~isempty(targetFaceTsFstI) && ~isempty(targetFaceTsLastI) && targetFaceTsLastI <= totalFaceFrames
         targetFaceTs = faceCamTs(faceFramesToRead, 1); % downsampled
         tbytDat(t).resampledVidFrameTs = targetFaceTs; 
 
-        tbytDffsmIntp = temporalIntpImageFrames(tbytDffsm, tbytDat(t).frameT, targetFaceTs);
+       tbytDffsmIntp = temporalIntpImageFrames(tbytDffsm, tbytDat(t).frameT, targetFaceTs);
 
         % Read, concatenate, and write each frame
         for fr = 1:length(faceFramesToRead)
@@ -127,7 +127,9 @@ for t = trials % 1:length(tbytDat) % trial
         end
     end
     clear v;
+    fprintf('Trial #%d/%d is completed.\n', t, length(tbytDat));
 end
+
 save(fullfile(fileBeh{1}), 'tbytDat') % to save tbytDat(t).faceCamTrelFrames
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

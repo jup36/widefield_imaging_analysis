@@ -33,7 +33,7 @@ gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates
 %% Manual Portion
 %select folders to process and grab the first file from each rec.
 %EXAMPLE DATA: Select 'subfolders' and then select '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA001/DA001_072623/DA001_072623_img'
-[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('Pos0.ome.tif', 1, filePathImg(1)); % use GrabFiles_sort_trials to sort both files and folders 
+[file_list_first_stack, folder_list_raw] = GrabFiles_sort_trials('_img_', 1, filePathImg(1)); % use GrabFiles_sort_trials to sort both files and folders 
 
 path_prepro_log = GrabFiles_sort_trials('prepro_log', 0, folder_list_raw(1));
 
