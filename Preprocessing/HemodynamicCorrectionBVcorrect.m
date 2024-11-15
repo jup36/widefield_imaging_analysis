@@ -19,12 +19,12 @@ function [dff, dff_b, dff_v] = HemodynamicCorrectionBVcorrect(stack, opts)
     stack_v = stack_v(:,:,1:min(cell2mat(min_length)));
 
     % to ensure correct assignment of blue and violet frames check their mean intensities 
-    if nanmean(stack_b(:)) < nanmean(stack_v(:))
-        stack_b_copy = stack_b; 
-        stack_b = stack_v; 
-        stack_v = stack_b_copy; 
-        clearvars stack_b_copy 
-    end
+%     if nanmean(stack_b(:)) < nanmean(stack_v(:))
+%         stack_b_copy = stack_b; 
+%         stack_b = stack_v; 
+%         stack_v = stack_b_copy; 
+%         clearvars stack_b_copy 
+%     end
 
     
     %remove the masked pixels by setting to NaN
@@ -44,8 +44,7 @@ function [dff, dff_b, dff_v] = HemodynamicCorrectionBVcorrect(stack, opts)
     stack_v_corrected = NaN(size(stack_v));
     for i = 1:size(stack_v_corrected,2)  
         temp = stack_v(:,i); 
-%         temp(1:5*opts.fps)=nanmean(temp(1:60*opts.fps));
-                        
+ 
         %smooth with ~450ms gaussian
         temp = smoothdata(temp,'gaussian',floor(opts.fps/2)); %opts.fps is per wavelength (if multiplexed) 
         %least square linear regression to find scaling factor and intercept        
@@ -76,7 +75,6 @@ function [dff, dff_b, dff_v] = HemodynamicCorrectionBVcorrect(stack, opts)
     
     %Subtraction correction DFF = dff_b-dff_v;
     dff = dff_b-dff_v;    
-    
 %     %calculate the dff for each (as in mussal et al., 2019/sexena 2020)
 %     [dff,~] = makeDFF(stack_b-stack_v_corrected, opts);
        

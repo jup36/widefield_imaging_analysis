@@ -4,16 +4,19 @@ function [swarm_id,save_fn] = FitMotifs_SpockSwarm(fn,dependency_id,s_conn,param
 %chunk in fn
 
 gp = loadobj(feval(parameter_class)); 
-num_chunks = gp.w_approx_chunk_num;
+temp = load(fn,'data_train'); 
+num_chunks = size(temp.data_train, 3); % to get exact number of chuncks for the loop below 
+%num_chunks = gp.w_approx_chunk_num;
 
 %generate swarm
 swarm_id = cell(1,num_chunks);
 save_fn = cell(1,num_chunks);
 for i = 1:num_chunks
     [~, fn_temp] = fileparts(fn);  
-    save_fn{i} = [gp.local_bucket gp.processing_intermediates fn_temp sprintf('_fit_chunk%d.mat',i)];
+    save_fn{i} = [gp.local_bucket_mac gp.processing_intermediates_mac fn_temp sprintf('_fit_chunk%d.mat',i)];
         
-    script_name = WriteBashScript(sprintf('motifchunk%d',i),'FitMotifs_Spock',{ConvertToBucketPath(fn),ConvertToBucketPath(save_fn{i}),i,parameter_class},{"'%s'","'%s'","%d","'%s'"},...
+    script_name = WriteBashScriptMac(sprintf('motifchunk%d',i), ...
+        'FitMotifs_Spock',{ConvertMacToBucketPath(fn),ConvertMacToBucketPath(save_fn{i}),i,parameter_class},{"'%s'","'%s'","%d","'%s'"},...
         'sbatch_time',600,'sbatch_memory',12,...
         'sbatch_path',"/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Spock/"); %cutoff for spock priority is 4hrs (240s), then 48 hours 
     

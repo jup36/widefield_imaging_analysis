@@ -5,7 +5,7 @@ function [angle] = setMidlineAngle(meanproj)
 % user select two points to fit midline
 figure('name','select two points for midline','units','normalized','outerposition',[0 0 1 1]);
 imagesc(meanproj); colormap gray; axis image
-clim([min(meanproj(:)) max(min(meanproj(:)), max(meanproj(:))/4)])
+clim([min(meanproj(:)) max(min(meanproj(:)), max(meanproj(:)))])
 %clim([min(meanproj(:)) max(min(meanproj(:)), max(meanproj(:))/2)])
 
 midline = imline; %drawline functionality in 2018b isn't quite there yet so don't use

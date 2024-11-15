@@ -22,6 +22,7 @@ cur_img = imcrop(cur_img,[opts.crop_cord(1),opts.crop_cord(2),...
 cur_img = double(cur_img([1:opts.crop_h],[1:opts.crop_w])); 
 
 %Mask and spatial bin
-cur_img = SpatialBin(cur_img,opts.spatial_bin_factor,opts.mask,1);
+cur_img = SpatialBinDynamic(cur_img,opts.mask,1); % This function 
+%cur_img = SpatialBin(cur_img,opts.spatial_bin_factor,opts.mask,1);
 
 end

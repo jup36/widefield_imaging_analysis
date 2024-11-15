@@ -5,9 +5,10 @@ info = imfinfo(in_fn); % imfinfo returns a structure whose fields contain inform
 img_count = numel(info); 
 
 %preallocate stack
-stack = NaN(ceil(opts.crop_h/opts.spatial_bin_factor),...
-    ceil(opts.crop_w/opts.spatial_bin_factor),...
-    img_count);
+stack = NaN(64, 64, img_count); 
+%stack = NaN(ceil(opts.crop_h/opts.spatial_bin_factor),...
+%    ceil(opts.crop_w/opts.spatial_bin_factor),...
+%    img_count);
 
 %read tiff
 in_tiff = Tiff(in_fn, 'r');

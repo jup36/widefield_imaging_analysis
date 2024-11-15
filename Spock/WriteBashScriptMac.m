@@ -14,7 +14,7 @@ file_path = [gp.local_bucket gp.dynamic_script_path];
 if ~exist(file_path)
     mkdir(file_path);
 end
-fid = fopen([file_path script_name], 'wt');
+fid = fopen(fullfile([file_path script_name]), 'wt');
 
 % write the bash file
 fprintf(fid,'%s','#!/usr/bin/env bash'); %add the first line of the header

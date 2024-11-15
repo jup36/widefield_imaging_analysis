@@ -1,4 +1,4 @@
-function options = MaskVasculature_JP(ref_img_aligned,options)
+function options = MaskVasculature_JP(ref_img_aligned, options)
 % ref_img_aligned: a reference image cropped and aligned (prepro_log.cropped_alligned_img).
 % options: prepro_log that contains the result from ManualAlignmentAdjust.
 
@@ -29,6 +29,11 @@ if options.mask_vasc %mask vasc
     %Add a premade mask to outline the brain.
     if options.mask_brain_outline
         temp = load(options.mask_brain_outline_dir);
+        if ~isequal(size(temp.brainoutline), size(ref_img_aligned))
+            % rescale the brainOutline to the reference image 
+            temp.brainoutline = rescaleBrainOutline(temp.brainoutline, size(ref_img_aligned)); 
+        end
+
         %Crop the mask to the size of the image. Assumes top left alligned
         temp.brainoutline = temp.brainoutline(1:options.crop_h, 1:options.crop_w);
         mask = mask+temp.brainoutline;
@@ -121,7 +126,7 @@ if options.mask_vasc %mask vasc
     end
     options.mask = mask;
     options.masked_ref_img_aligned = ref_img_aligned.*mask;
-end 
+end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function [hfig, hBaseImg, hOverlay] = showImgAndMask(img, maskedImg, varargin)
@@ -136,7 +141,8 @@ end
 
         % Scale the main image for better visibility
         minImg = min(img(:));
-        maxImg = max(img(:)) / 3; % Enhance contrast by adjusting the max value
+        maxImg = max(img(:));
+        %maxImg = max(img(:)) / 3; % Enhance contrast by adjusting the max value (BRIGHTNESS)
         scaledImage = (img - minImg) / (maxImg - minImg);
 
         hAxes = axes('Parent', hfig);
@@ -163,5 +169,10 @@ end
         hold off;
         title('Image with Transparent Overlay');
     end
+
+    function rescaledMap = rescaleBrainOutline(origMap, rescaledSize)
+        rescaledMap = imresize(origMap, rescaledSize, 'nearest');
+    end
+
 
 end

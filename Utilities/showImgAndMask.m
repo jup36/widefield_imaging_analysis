@@ -10,7 +10,8 @@ end
 
 % Scale the main image for better visibility
 minImg = min(img(:));
-maxImg = max(img(:)) / 3; % Enhance contrast by adjusting the max value
+maxImg = max(img(:));
+%maxImg = max(img(:)) / 3; % Enhance contrast by adjusting the max value (BRIGHTNESS)
 scaledImage = (img - minImg) / (maxImg - minImg);
 
 hAxes = axes('Parent', hfig);

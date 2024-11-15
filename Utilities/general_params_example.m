@@ -2,10 +2,12 @@ classdef general_params_example
     properties
         %Path Options
         local_bucket = 'Z:\';
+        local_bucket_mac = '/Volumes/buschman/'; 
         spock_bucket = '\jukebox\buschman\';
         repo_path = 'Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\';        
         dynamic_script_path = 'Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\Spock\DynamicScripts\';
         processing_intermediates = 'Rodent Data\Wide Field Microscopy\ExampleData\Preprocessed\'; %location of the intermediate files in the processing pipeline
+        processing_intermediates_mac = 'Rodent Data/Wide Field Microscopy/ExampleData/Preprocessed/'; 
         figure_save_directory = 'Projects\Cortical Dynamics\Parietal Cortex and Cortex Wide Dynamics\ProcessingFigures\'; %directory to save off figures during processing
         
         %dynamic script options

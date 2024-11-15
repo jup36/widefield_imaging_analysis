@@ -72,8 +72,8 @@ classdef general_params
         d_kernel = 50;
         
         %miscellaneous additions
-        pixel_dim = [68,68];        
-        originaldimensions = [68,68];        
+        pixel_dim = [64,64];%[68,68];        
+        originaldimensions = [64,64];%[68,68];        
         verbose = 1;       
         smt_kernel = []; %default is [1,1]       
         

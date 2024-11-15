@@ -25,7 +25,7 @@ else
 end
 
 if chunk == 1 %make some example figures
-    [w, h, stats_train, stats_test] = FitandValidateMotifs(data_train,data_test,gp,1);
+    [w, h, stats_train, stats_test] = FitandValidateMotifs(data_train,data_test,gp,1); % /buschman/Rodent Data/Wide Field Microscopy/fpCNMF
     %get figure names 
     [fig_path, fig_name] = fileparts(save_fn);
     handles = get(groot, 'Children');

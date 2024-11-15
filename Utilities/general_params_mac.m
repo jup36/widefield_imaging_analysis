@@ -6,7 +6,7 @@ classdef general_params_mac
         repo_path = 'Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\';        
         dynamic_script_path = 'Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/';
         %dynamic_script_path = 'Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\Spock\DynamicScripts\';
-        processing_intermediates = 'Rodent Data\Wide Field Microscopy\ExampleData\Preprocessed\'; %location of the intermediate files in the processing pipeline
+        processing_intermediates = 'Rodent Data/Wide Field Microscopy/ExampleData/Preprocessed/'; %location of the intermediate files in the processing pipeline
         figure_save_directory = 'Projects\Cortical Dynamics\Parietal Cortex and Cortex Wide Dynamics\ProcessingFigures\'; %directory to save off figures during processing
         
         %dynamic script options
