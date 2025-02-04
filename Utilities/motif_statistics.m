@@ -6,27 +6,32 @@
  load(filePathPre, 'data_test')
  
 % visualize the results of the stats_train
-fprintf('\nNumber of Motifs: %d\n', stats_train.n_motifs)
-fprintf('\nPercent Variance Explained: %0.2g%%\n', stats_train.pev*100)
+fprintf('\nNumber of Motifs: %d\n', stats_test.n_motifs)
+fprintf('\nPercent Variance Explained: %0.2g%%\n', stats_test.pev*100)
 
 %plot the relative pev of each motif
-loadings = [stats_train.loadings{:}];
+loadings = [stats_test.loadings{:}];
 figure; bar(loadings); xlabel('motifs'); ylabel('PEV'); title('Motif Loadings')
+set(gca, 'TickDir', 'out')
+% print(fullfile(savePathM, 'pevMotifs_heldout'), '-dpdf', '-bestfit', '-vector')
 
 %and the spatial correlation per frame
-figure; plot(stats_train.rho_frame,'linewidth',2,'color','k'); 
+figure; plot(stats_test.rho_frame,'linewidth',2,'color','k'); 
 title('spatial correlation')
 ylabel('Correlation'); 
 set(gca,'xticklabel',round(get(gca,'xtick')/10)); 
 xlabel('time (s)'); 
+ylim([0 1]); 
 %set(gca,'TickDir', 'out')
 axis tight
+% print(fullfile(savePathM, 'spatialCorrMotifs_heldout'), '-dpdf', '-bestfit', '-vector')
+
 
 %for comparison, let's see how well PCA captures the variance in this dataset
 [~, score, ~, ~, explained, ~] = pca(data_test);
 figure; hold on; plot(cumsum(explained),'color','k','linewidth',2); 
-plot([0 100],[stats_train.pev*100,stats_train.pev*100],'linestyle','--','color','r','linewidth',2);
-plot([stats_train.n_motifs,stats_train.n_motifs],[0 100],'linestyle','--','color','r','linewidth',2);
+plot([0 100],[stats_test.pev*100,stats_test.pev*100],'linestyle','--','color','r','linewidth',2);
+plot([stats_test.n_motifs,stats_test.n_motifs],[0 100],'linestyle','--','color','r','linewidth',2);
 set(gca,'xlim',[0 100]); title('Comparing Motif fit to PCA')
 xlabel('PCs'); 
 ylabel('PEV'); 
@@ -40,7 +45,7 @@ for i = 1:9; nexttile; imagesc(temp(:,:,i)); title(sprintf('PC %d',i));  axis sq
 
 %let's visualize the motifs. 
 figure;
-for i = 1:stats_train.n_motifs
+for i = 1:stats_test.n_motifs
     temp = conditionDffMat(squeeze(w(:,i,:))',nanpxs);
     %smooth for visualization
     %temp = SpatialGaussian(temp,[1 1],'sigma');
@@ -56,4 +61,6 @@ end
 % In general, spontaneous activity is relatively sparse
 figure; hold on; plot(h'); legend; ylabel('Motif Activity'); set(gca,'xticklabel',round(get(gca,'xtick')/10)); xlabel('time (s)');
 legend({'motif1', 'motif2', 'motif3', 'motif4', 'motif5', 'motif6', 'motif7'}, 'Location', 'best');
+set(gca, 'TickDir', 'out')
+% print(fullfile(savePathM, 'motif_temporal_weighting'), '-dpdf', '-bestfit', '-vector')
 

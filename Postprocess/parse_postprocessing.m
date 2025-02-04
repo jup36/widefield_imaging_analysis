@@ -7,6 +7,7 @@ default_tbytBaseWinF = 'all'; % default baseline window for trial-by-trial dff (
 default_movingWinF = 30; % default window for moving average dff (30 s)
 default_saveTbytDff = true;
 default_combineStacksOfSameSequenceLogic = true;
+default_channelOfInterest = 'green';
 
 p = inputParser; % create parser object
 addRequired(p, 'filePath')
@@ -18,6 +19,7 @@ addParameter(p, 'tbytBaseWinF', default_tbytBaseWinF)
 addParameter(p, 'movingWinF', default_movingWinF)
 addParameter(p, 'saveTbytDff', default_saveTbytDff)
 addParameter(p, 'combineStacksOfSameSequenceLogic', default_combineStacksOfSameSequenceLogic)
+addParameter(p, 'channelOfInterest', default_channelOfInterest)
 
 parse(p, filePath, vargs{:})
 end

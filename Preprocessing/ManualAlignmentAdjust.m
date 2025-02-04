@@ -13,8 +13,8 @@ pos = get(gcf,'Position');
 set(gcf,'Position',[pos(1)-200, pos(2)-200, size(ref_img,2), size(ref_img,1)]);
 hold on
 
-% opts.crop_w = 448; % original: 540
-% opts.crop_h = 448; % original: 540
+% opts.crop_w = 400; % original: 540
+% opts.crop_h = 400; % original: 540
 
 %cropping rectangle
 rect = imrect(gca,[0 0 opts.crop_w opts.crop_h]);

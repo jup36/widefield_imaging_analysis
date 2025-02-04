@@ -86,7 +86,7 @@ if interactiveFlag %if user interaction
     end %log selection while loop
     
 else %just grab files in the directories listed in searchdir
-    for cur_f = 1:size(searchdir)
+    for cur_f = 1:length(searchdir)
         target_dir = searchdir{cur_f};
         [file_names,file_path, folder_names] = GrabFile(target_dir,substring); %see subfunc below
         file_list = [file_list, file_path];

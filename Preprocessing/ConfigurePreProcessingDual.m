@@ -3,8 +3,8 @@ function opts = ConfigurePreProcessingDual(varargin)
 opts.fixed_image = 'first'; %image to use as reference. first, middle, mean, variance, max
 opts.crop_h = 420; %height of croped image in pixels. 
 opts.crop_w = 420; %width of cropped image in pixels.
-opts.x_bregma_margin = 220;  %For outlininign brain: Number of pixels to anterior to bregma (default = 280)
-opts.y_bregma_margin = 170; %for outlining brain: number of pixels to keep lateral to bregma (default = 230)
+opts.x_bregma_margin = 210;  %For outlininign brain: Number of pixels to anterior to bregma (default = 280)
+opts.y_bregma_margin = 160; %for outlining brain: number of pixels to keep lateral to bregma (default = 230)
 opts.mask_vasc = 1; %Mask vasculature
 opts.manual_mask = 1; %Add additional manual masking to image (e.g. if imperfection in skull); 
 opts.vasc_std = 1.5; %number of standard devidations from mean of ref_img to consider vasculature (2.5 works well)

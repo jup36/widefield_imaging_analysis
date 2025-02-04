@@ -25,8 +25,8 @@ stack_v(masked_pxls)=NaN;
 
 %there are large transients in both signals for the first 10 seconds of the recording, likely due to LED warm up (should add 'burn in' frames in the future);
 %this can effects downstream results so replace the first 10 seconds of both with the average of the first minute; You should remove these at the end of analysis (after timelocking to behavior/ephys)
-stack_b(:,:,1:5*opts.fps) = repmat(nanmean(stack_b(:,:,1:30*opts.fps),3),1,1,5*opts.fps);
-stack_v(:,:,1:5*opts.fps) = repmat(nanmean(stack_v(:,:,1:30*opts.fps),3),1,1,5*opts.fps);
+stack_b(:,:,1:3*opts.fps) = repmat(nanmean(stack_b(:,:,1:30*opts.fps),3),1,1,3*opts.fps);
+stack_v(:,:,1:3*opts.fps) = repmat(nanmean(stack_v(:,:,1:30*opts.fps),3),1,1,3*opts.fps);
 
 % Calculate the mean and standard deviation across frames (noticed an outlier frame, if any replace them!)
 stack_b_frM = squeeze(nanmean(nanmean(stack_b, 1), 2));
