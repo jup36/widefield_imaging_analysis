@@ -51,16 +51,7 @@ end
 load(fileStim{1}, 'stimopts')
 fprintf("finished loading stimopts!\n")
 
-%% load data
-% load evtIns for 'cmosExp' essential for temporal alignment of the frames
-% load(fullfile(filePath_nidq{1}, 'evtInS'), 'evtInS')
-% if exist('evtInS', 'var')~=1
-%     [evtInS_file, evtInS_folder] = uigetfile('*.mat', 'Select the evtInS file for cmosExp!', filePath);
-%     load(fullfile(evtInS_folder, evtInS_file), 'evtInS')
-% end
-% fprintf("finished loading evtInS!\n")
-
-% load tbytDat that contains trial-by-trial timestamps (cmosExp, faceCam)
+%% load tbytDat data
 load(fullfile(fileBeh{1}), 'tbytDat')
 fprintf("finished loading tbytDat!\n")
 
@@ -79,7 +70,10 @@ end
 % compute and/or align dff, save each trial's dff
 assert(strcmp(p.Results.imageToUse, 'dff_combined'))
 % load preprocessed dffs ('dff_combined.mat')
-[file_list_img, ~] = GrabFiles_sort_trials('green', 0, fileImg(1));
+
+assert(strcmpi(p.Results.channelOfInterest, 'green') || strcmpi(p.Results.channelOfInterest, 'red')) % Must be either green or red
+[file_list_img, ~] = GrabFiles_sort_trials(p.Results.channelOfInterest, 0, fileImg(1));
+
 imgC = cell(1, length(file_list_img));
 for ff = 1:length(file_list_img)
     [dff_file, ~] = GrabFiles_sort_trials('dff_combined.mat', 0, file_list_img(ff)); % use GrabFiles_sort_trials to sort both files and folders
