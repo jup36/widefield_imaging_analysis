@@ -1,33 +1,45 @@
-function dffPostprocess_auditory_gng_averaging(filePath)
-%filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA008/DA008_101823';
+function dffPostprocess_auditory_gng_averaging_dual(filePath, channel)
+%filePath = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_121324/task';
 
 %% load trial-by-trial behavior & task data tbytDat.mat
 %parentDir = fileparts(filePath);
-[~, header] = fileparts(filePath);
-fileBeh = GrabFiles_sort_trials('tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
-if isempty(fileBeh)
-    fileBeh = GrabFiles_sort_trials('tbytDat_dff', 1, {filePath});
+match_header = regexp(filePath, 'm\d{1,4}_\d{6}', 'match');
+header = match_header{1};
+
+if strcmpi(channel, 'green')
+    fileBeh = GrabFiles_sort_trials('_green_tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
+elseif strcmpi(channel, 'red')
+    fileBeh = GrabFiles_sort_trials('_red_tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
 end
 load(fullfile(fileBeh{1}), 'tbytDat')
 
 % get behavioral data further analyzed
-fileBehParseGng = GrabFiles_sort_trials('tbytDat_parseGng', 0, {fullfile(filePath, 'Matfiles')});
-if isempty(fileBehParseGng)
-    tbytDat = parseAuditoryGngTrials(tbytDat);
-    save(fullfile(filePath, 'Matfiles', strcat(header, '_tbytDat_parseGng')), 'tbytDat')
-else
-    load(fileBehParseGng{1})
-end
+% fileBehParseGng = GrabFiles_sort_trials('tbytDat_parseGng', 0, {fullfile(filePath, 'Matfiles')});
+% if isempty(fileBehParseGng)
+%     tbytDat = parseAuditoryGngTrials(tbytDat);
+%     save(fullfile(filePath, 'Matfiles', strcat(header, '_tbytDat_parseGng')), 'tbytDat')
+% else
+%     load(fileBehParseGng{1})
+% end
 
 % load the preprocessed dffs collect
-load(fullfile(filePath, 'Matfiles', strcat(header, '_dffsmCollect.mat')), 'dffsmCell');
+if strcmpi(channel, 'green')
+    load(fullfile(filePath, 'Matfiles', strcat(header, "_green_dff_smCollect.mat")), 'dffsmCell');
+elseif strcmpi(channel, 'red')
+    load(fullfile(filePath, 'Matfiles', strcat(header, '_red_dff_smCollect.mat')), 'dffsmCell');
+end
 
 % load Allen dorsalMap
 load(fullfile('/Users/jp3025/Documents/codes/WidefieldAnalysis_Musall/allenDorsalMap.mat'), 'dorsalMaps', 'motorMask', 'smotorMask', 'ssMask', 'vMask', 'rsMask');
 
-% load Allen transformation object
-folder_list_imgTrial = GrabFiles_sort_trials(header, 0, {fullfile(filePath, strcat(header, '_img'))}); % use GrabFiles_sort_trials to sort both files and folders
-load(fullfile(folder_list_imgTrial{1}, 'transParamsAllen.mat'), 'transParams')
+% load Allen transformation object (the alignment parameters to Allen CCF)
+folder_list_imgTrial = GrabFiles_sort_trials('_img', 0, {filePath}); 
+if strcmpi(channel, 'green')
+    path_transParamsAllen = find_keyword_containing_files(folder_list_imgTrial{1}, 'transParamsAllen_green', 'recursive', true); 
+elseif strcmpi(channel, 'red')
+    path_transParamsAllen = find_keyword_containing_files(folder_list_imgTrial{1}, 'transParamsAllen_red', 'recursive', true); 
+end
+load(fullfile(path_transParamsAllen{1}), 'transParams')
 
 % file directory for trials
 filePathTrials = fullfile(filePath, strcat(header, '_trials'));
@@ -56,7 +68,7 @@ for t = 1:length(tbytDat)
     [rez.stimOnDffC.v1{t, 1}, rez.stimOnDffC.v1{t, 2}] = alignToEvent(dffV1, 0, frT, [-0.9 5]);
     [rez.stimOnDffC.rs{t, 1}, rez.stimOnDffC.rs{t, 2}] = alignToEvent(dffRs, 0, frT, [-0.9 5]);
 
-    %% Align to licks during ITI (technically impossible with the retractable spout)
+    %% Align to licks during ITI (technically impossible at the moment with the retractable spout)
     %     for ii = 1:length(tbytDat(t).itiLickChunk) % there can be multiple bouts
     %         [rez.itiLickDff.m1{t, 1}{ii, 1}, rez.itiLickDff.m1{t, 1}{ii, 2}] = alignToEvent(dffM1, tbytDat(t).itiLickChunk{ii}(1), frT, [-1 1]); % M1 align to the ITI lick bout use the 1st lick of each bout
     %         [rez.itiLickDff.m2{t, 1}{ii, 1}, rez.itiLickDff.m2{t, 1}{ii, 2}]  = alignToEvent(dffM2, tbytDat(t).itiLickChunk{ii}(1), frT, [-1 1]); % M2 align to the ITI lick bout use the 1st lick of each bout
@@ -82,7 +94,7 @@ for t = 1:length(tbytDat)
         tbytDat(t).LickBoutRel = cellfun(@(a) a-tbytDat(t).evtOn, tbytDat(t).LickChunk, 'UniformOutput', false);
         %m1
         [lickOnTf, lickBoxOnTf, dffsOnTfItpM1, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffM1, tbytDat(t).frameTrel, [-0.9 5]);
-        rez.lickOnTfBin{t, 1} = bin1msSpkCountMat(lickOnTf, 50, 50 );
+        rez.lickOnTfBin{t, 1} = bin1msSpkCountMat( lickOnTf, 50, 50 );
         rez.dffsOnTfItpM1{t, 1} = dffsOnTfItpM1(1:50:end);
         [rez.xcorrDffLick.m1{t, 1}, rez.xcorrDffLick.m1{t, 2}] = xcorr(dffsOnTfItpM1-min(dffsOnTfItpM1), lickOnTf, 2000, 'normalized');
         [rez.xcorrDffLickBox.m1{t, 1}, rez.xcorrDffLickBox.m1{t, 2}] = xcorr(dffsOnTfItpM1-min(dffsOnTfItpM1), lickBoxOnTf, 2000, 'normalized');
@@ -92,25 +104,25 @@ for t = 1:length(tbytDat)
         rez.dffsOnTfItpM2{t, 1} = dffsOnTfItpM2(1:50:end);
         [rez.xcorrDffLick.m2{t, 1}, rez.xcorrDffLick.m2{t, 2}] = xcorr(dffsOnTfItpM2-min(dffsOnTfItpM2), lickOnTf, 2000, 'normalized');
         [rez.xcorrDffLickBox.m2{t, 1}, rez.xcorrDffLickBox.m2{t, 2}] = xcorr(dffsOnTfItpM2-min(dffsOnTfItpM2), lickBoxOnTf, 2000, 'normalized');
-        [rez.xcorrDsDffLickBox.m2{t, 1}, rez.xcorrDsDffLickBox.m2{t, 2}] = xcorr(dffsOnTfItpM2(1:50:end)-min(dffsOnTfItpM2), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.m2{t, 1}, rez.xcorrDsDffLickBox.m2{t, 2}] = xcorr(dffsOnTfItpM2(1:50:end)-min(dffsOnTfItpM2), lickBoxOnTf(1:50:end), 40, 'normalized');
         %ss
         [lickOnTf, lickBoxOnTf, dffsOnTfItpSs, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffSs, tbytDat(t).frameTrel, [-0.9 5]);
         rez.dffsOnTfItpSs{t, 1} = dffsOnTfItpSs(1:50:end);
         [rez.xcorrDffLick.ss{t, 1}, rez.xcorrDffLick.ss{t, 2}] = xcorr(dffsOnTfItpSs-min(dffsOnTfItpSs), lickOnTf, 2000, 'normalized');
         [rez.xcorrDffLickBox.ss{t, 1}, rez.xcorrDffLickBox.ss{t, 2}] = xcorr(dffsOnTfItpSs-min(dffsOnTfItpSs), lickBoxOnTf, 2000, 'normalized');
-        [rez.xcorrDsDffLickBox.ss{t, 1}, rez.xcorrDsDffLickBox.ss{t, 2}] = xcorr(dffsOnTfItpSs(1:50:end)-min(dffsOnTfItpSs), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.ss{t, 1}, rez.xcorrDsDffLickBox.ss{t, 2}] = xcorr(dffsOnTfItpSs(1:50:end)-min(dffsOnTfItpSs), lickBoxOnTf(1:50:end), 40, 'normalized');
         %v1
         [lickOnTf, lickBoxOnTf, dffsOnTfItpV1, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffV1, tbytDat(t).frameTrel, [-0.9 5]);
         rez.dffsOnTfItpV1{t, 1} = dffsOnTfItpV1(1:50:end);
         [rez.xcorrDffLick.V1{t, 1}, rez.xcorrDffLick.V1{t, 2}] = xcorr(dffsOnTfItpV1-min(dffsOnTfItpV1), lickOnTf, 2000, 'normalized');
         [rez.xcorrDffLickBox.v1{t, 1}, rez.xcorrDffLickBox.v1{t, 2}] = xcorr(dffsOnTfItpV1-min(dffsOnTfItpV1), lickBoxOnTf, 2000, 'normalized');
-        [rez.xcorrDsDffLickBox.v1{t, 1}, rez.xcorrDsDffLickBox.v1{t, 2}] = xcorr(dffsOnTfItpV1(1:50:end)-min(dffsOnTfItpV1), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.v1{t, 1}, rez.xcorrDsDffLickBox.v1{t, 2}] = xcorr(dffsOnTfItpV1(1:50:end)-min(dffsOnTfItpV1), lickBoxOnTf(1:50:end), 40, 'normalized');
         %rs
         [lickOnTf, lickBoxOnTf, dffsOnTfItpRs, ~] = alignDffAndLickBouts(tbytDat(t).LickBoutRel, dffRs, tbytDat(t).frameTrel, [-0.9 5]);
         rez.dffsOnTfItpRs{t, 1} = dffsOnTfItpRs(1:50:end);
         [rez.xcorrDffLick.rs{t, 1}, rez.xcorrDffLick.rs{t, 2}] = xcorr(dffsOnTfItpRs-min(dffsOnTfItpRs), lickOnTf, 2000, 'normalized');
         [rez.xcorrDffLickBox.rs{t, 1}, rez.xcorrDffLickBox.rs{t, 2}] = xcorr(dffsOnTfItpRs-min(dffsOnTfItpRs), lickBoxOnTf, 2000, 'normalized');
-        [rez.xcorrDsDffLickBox.rs{t, 1}, rez.xcorrDsDffLickBox.rs{t, 2}] = xcorr(dffsOnTfItpRs(1:50:end)-min(dffsOnTfItpRs), lickBoxOnTf(1:50:end), 2000, 'normalized');
+        [rez.xcorrDsDffLickBox.rs{t, 1}, rez.xcorrDsDffLickBox.rs{t, 2}] = xcorr(dffsOnTfItpRs(1:50:end)-min(dffsOnTfItpRs), lickBoxOnTf(1:50:end), 40, 'normalized');
     end
     %figure; hold on;
     %plot(tF, smooth2a(dffsOnTfItp, 0, 50));

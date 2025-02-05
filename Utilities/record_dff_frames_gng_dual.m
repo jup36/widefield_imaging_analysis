@@ -1,4 +1,4 @@
-function record_dff_frames_gng_dual(filePath, channel, varargin)
+function record_dff_frames_gng_dual(filePath, channel, colorLim, varargin)
 % filePath = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_121324/task';
 % e.g., dff = tbytDat(21).dffsm
 %By default this function iterate through all trials and record frames of
@@ -37,7 +37,7 @@ for t = trials % 1:length(tbytDat) % trial
 
     for i = 1:size(tbytDffsm,3)
         pngName = sprintf('frame_%d.png', i);
-        figHandle = imageFrameWithNaNs(tbytDffsm(:, :, i), [-2 2]); hold on;
+        figHandle = imageFrameWithNaNs(tbytDffsm(:, :, i), colorLim); hold on;
 
         % Turn off the axes
         axis off;
