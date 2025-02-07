@@ -26,6 +26,8 @@ function [file_list, folder_list] = GrabFiles_sort_trials(substring, interactive
 % Cell array of directories to search for files if interactiveflag is 0; 
 %
 % @outputs: list of paths for each file and folder paths for each folder
+% Tests:
+%   [file_list, folder_list] = GrabFiles_sort_trials('dffG*trial_1', 0, {'/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_121324/task/m1045_121324_trials'});
 
 if nargin < 2
     interactiveFlag = 1; 
@@ -118,39 +120,93 @@ end
 end
 
 
+function [in_fns, in_path, in_folder] = GrabFile(target_dir, substring)
+    if isempty(target_dir) 
+        target_dir = uigetdir;
+    end
 
+    startdir = pwd;
+    cd(target_dir);
+    
+    % List all files in directory
+    files = dir(target_dir);
+    fileNames = {files.name};
 
-function [in_fns,in_path,in_folder] = GrabFile(target_dir,substring)
-if isempty(target_dir) 
-    target_dir = uigetdir;
-else
-end
-startdir = (pwd);
-cd(target_dir);
-files = dir(); 
-matches = regexpi({files.name},substring);
-files = files(cellfun(@(x)~isempty(x),matches));
-% files = dir(substring); %just grab those with a specific substring at the end
-if isempty(files)   %No files = throw an error
-    warning(sprintf('No files with "%s" in selected directory %s',substring,target_dir));
+    % Ensure outputs are always cell arrays
     in_fns = [];
     in_path = [];
     in_folder = [];
-else
-    in_fns = cell([1,length(files)]);
-    in_path = cell([1,length(files)]);
-    in_folder = cell([1,length(files)]);
-    for cur_f = 1:length(files)
-        in_fns{cur_f} = files(cur_f).name;
-        in_folder{cur_f} = files(cur_f).folder;
-        in_path{cur_f} = fullfile(files(cur_f).folder,files(cur_f).name);
+
+    % Convert '*' wildcard into subcomponents
+    if ischar(substring)
+        subcomponents = strsplit(substring, '*'); % Split at '*'
+    elseif iscell(substring)
+        subcomponents = substring; % If already a cell array, use as is
+    else
+        error('Substring must be a string with wildcards or a cell array of substrings.');
     end
-    in_fns = in_fns(~cellfun('isempty',in_fns));
-    in_path = in_path(~cellfun('isempty',in_path));
-    in_folder = in_folder(~cellfun('isempty',in_folder));
-    if isempty(in_fns)
-        warning(sprintf('No files with "%s" in selected directory %s',substring,target_dir));
+
+    % Ensure exact number matching for numeric subcomponents
+    for i = 1:length(subcomponents)
+        if any(isstrprop(subcomponents{i}, 'digit'))
+            % Replace numeric parts with exact number match (avoiding trial_1 matching trial_11)
+            subcomponents{i} = regexprep(subcomponents{i}, '(\d+)', '(?<=\\D|^)$1(?=\\D|$)');
+        end
     end
-cd(startdir);
+
+    % Match filenames that contain ALL subcomponents
+    matchIdx = cellfun(@(name) all(cellfun(@(comp) ~isempty(regexp(name, comp, 'once')), subcomponents)), fileNames);
+
+    % Extract matching files
+    matchedFiles = files(matchIdx);
+
+    % Handle no matches case
+    if isempty(matchedFiles)
+        warning('No files matching "%s" found in directory: %s', substring, target_dir);
+    else
+        % Extract file names, full paths, and directories
+        in_fns = {matchedFiles.name}; 
+        in_path = fullfile(target_dir, in_fns);
+        in_folder = repmat({target_dir}, size(in_fns)); 
+    end
+
+    cd(startdir);
 end
-end
+
+
+
+
+% function [in_fns,in_path,in_folder] = GrabFile(target_dir,substring)
+% if isempty(target_dir) 
+%     target_dir = uigetdir;
+% else
+% end
+% startdir = (pwd);
+% cd(target_dir);
+% files = dir(); 
+% matches = regexpi({files.name},substring);
+% files = files(cellfun(@(x)~isempty(x),matches));
+% % files = dir(substring); %just grab those with a specific substring at the end
+% if isempty(files)   %No files = throw an error
+%     warning(sprintf('No files with "%s" in selected directory %s',substring,target_dir));
+%     in_fns = [];
+%     in_path = [];
+%     in_folder = [];
+% else
+%     in_fns = cell([1,length(files)]);
+%     in_path = cell([1,length(files)]);
+%     in_folder = cell([1,length(files)]);
+%     for cur_f = 1:length(files)
+%         in_fns{cur_f} = files(cur_f).name;
+%         in_folder{cur_f} = files(cur_f).folder;
+%         in_path{cur_f} = fullfile(files(cur_f).folder,files(cur_f).name);
+%     end
+%     in_fns = in_fns(~cellfun('isempty',in_fns));
+%     in_path = in_path(~cellfun('isempty',in_path));
+%     in_folder = in_folder(~cellfun('isempty',in_folder));
+%     if isempty(in_fns)
+%         warning(sprintf('No files with "%s" in selected directory %s',substring,target_dir));
+%     end
+% cd(startdir);
+% end
+% end
