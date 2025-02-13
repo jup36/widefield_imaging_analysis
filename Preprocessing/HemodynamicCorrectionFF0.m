@@ -65,15 +65,12 @@ end
 stack_v_smoothed = NaN(size(stack_v));
 for i = 1:size(stack_v_smoothed,2)
     temp = stack_v(:,i);
-
     %smooth with ~450ms gaussian
     temp = smoothdata(temp,'gaussian',floor(opts.fps/2)); %opts.fps is per wavelength (if multiplexed)
-    % SKIP polynomial fitting
     %least square linear regression to find scaling factor and intercept
     coef = polyfit(temp,stack_b(:,i),1);
     correction = @(x) coef(1)*x+coef(2);
     stack_v_smoothed(:,i) = correction(temp);
-    stack_v_smoothed(:,i) = temp;
 end
 
 %remake into full size

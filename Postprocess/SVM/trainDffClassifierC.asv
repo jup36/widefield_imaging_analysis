@@ -1,0 +1,152 @@
+function [svmRez, svmRezTs, nbRez, nbRezTs, X1, X2] = trainDffClassifierC(dffC1, dffC2, resample, pHoldOut)
+% trainDffClassifierC: Prepares mesoscopic df/f imaging data for SVM classification.
+% It organizes the data into a structure suitable for classification.
+%
+% Inputs:
+% - dffC1, dffC2: Cell arrays (1 × numTrials), each entry is a 64×64×numTimeBins matrix.
+% - cvFold: Number of cross-validation folds.
+%
+% Xs: A cell array (1 x # of time bins)
+%     - Each time-bin entry has 1 x # of class (e.g., Go vs NoGo) cell array
+%     -- Each class entry has 1 x # of trials cell array
+%     --- Each trial entry has 1 x # of pixels (e.g., 64x64) array
+% y: A cell array (1 x # of class) cell array
+%    - Each class entry has # of trial x 1 class labels (e.g., 1: Go, 2:NoGo) 
+
+
+%% Step 1: Validate and Extract Dimensions
+dims = cell2mat(cellfun(@size, [dffC1, dffC2], 'UniformOutput', false)); 
+
+% Ensure consistency across all trials
+assert(isscalar(unique(dims(:,1))), 'Mismatch in number of rows!');
+assert(isscalar(unique(dims(:,2))), 'Mismatch in number of columns!');
+assert(isscalar(unique(dims(:,3))), 'Mismatch in number of time bins!');
+
+% Store consistent dimensions
+numRows = unique(dims(:,1));
+numCols = unique(dims(:,2));
+numTimeBins = unique(dims(:,3));
+numPixels = numRows * numCols; % (64 x 64 = 4096)
+
+%% Step 2: Flatten (Vectorize) Data
+dffC1_vec = cellfun(@(x) reshape(x, numPixels, []), dffC1, 'UniformOutput', false);
+dffC2_vec = cellfun(@(x) reshape(x, numPixels, []), dffC2, 'UniformOutput', false);
+
+numTrialsC1 = length(dffC1_vec);
+numTrialsC2 = length(dffC2_vec);
+
+assert(all(cellfun(@(x) size(x,2), dffC1_vec) == numTimeBins), 'Mismatch in time bins for dffC1');
+assert(all(cellfun(@(x) size(x,2), dffC2_vec) == numTimeBins), 'Mismatch in time bins for dffC2');
+
+%% Step 3: Organize Data per Time Bin
+Xs = cell(1, numTimeBins);
+
+for t = 1:numTimeBins
+    % Extract and vectorize trials for this time bin
+    X1_bin = cellfun(@(x) x(:,t)', dffC1_vec, 'UniformOutput', false); % Each entry: 1 × numPixels
+    X2_bin = cellfun(@(x) x(:,t)', dffC2_vec, 'UniformOutput', false); % Each entry: 1 × numPixels
+    
+    % Store separately in a nested cell array
+    Xs{t} = {X1_bin, X2_bin}; % Xs{t}{1} -> dffC1 trials, Xs{t}{2} -> dffC2 trials
+end
+
+% Construct y (labels) as a separate cell array
+y = {ones(numTrialsC1,1), ones(numTrialsC2,1) * 2}; % y{1} = dffC1 labels, y{2} = dffC2 labels
+
+%% Step 4: Identify Valid Pixels
+validMask = ~isnan(sum(cell2mat(dffC1_vec), 2)) | ~isnan(sum(cell2mat(dffC2_vec), 2));
+validPixels = find(validMask); % Indices of valid (non-NaN) pixels
+
+disp('Data successfully prepared for SVM classification.');
+
+%% Step 5: Train/Test SVM classifier
+[] = multiClass_svm_with_cv(Xs, y, 10, pHoldOut, validPixels); 
+
+
+
+end
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [accuracy, betaValues] = multiClass_svm_with_cv(Xs, y, resample, pHoldOut, validPixels)
+% multiClass_svm_with_cv: Trains an SVM classifier on mesoscopic df/f imaging data
+% while handling masked pixels (NaNs) and performing cross-validation.
+%
+% Inputs:
+% - Xs: 1×numTimeBins cell array, where each entry contains:
+%       {X1_bin (trials × pixels) for class 1, X2_bin (trials × pixels) for class 2}
+% - y: 1×2 cell array, where y{1} and y{2} contain labels for each class.
+% - resample: Number of times to resample and train the classifier.
+% - validPixels: Indices of valid (non-NaN) pixels to use for classification.
+%
+% Outputs:
+% - accuracy: resample × numTimeBins matrix of classification accuracies.
+% - betaValues:  
+
+accuracy = zeros(resample, length(Xs)); % Initialize accuracy matrix
+betaValues = cell(1, length(Xs)); % Store beta values for weight mapping
+
+for t = 1:length(Xs) % Loop over time bins
+    % Extract and vectorize trials for each class in the current time bin
+    X1_bin = cell2mat(Xs{t}{1}); % Flatten trials for class 1
+    X2_bin = cell2mat(Xs{t}{2}); % Flatten trials for class 2
+    
+    % Ensure proper reshaping: (numTrials × numPixels)
+    X1_bin = reshape(X1_bin, 64*64, []).'; % Convert to (numTrials × numPixels)
+    X2_bin = reshape(X2_bin, 64*64, []).'; % Convert to (numTrials × numPixels)
+
+    % Apply valid pixel selection
+    X1_bin = X1_bin(:, validPixels); % numTrials x numValidPixels
+    X2_bin = X2_bin(:, validPixels); % numTrials x numValidPixels
+
+    % Combine feature matrix and labels
+    X = [X1_bin; X2_bin];      % numTrialsCombined x numValidPixels  
+    y_combined = [y{1}; y{2}]; % numTrialsCombined x 1
+
+    % Balance class sizes
+    minSize = min(histcounts(y_combined));
+
+    for rs = 1:resample
+        % Initialize balanced dataset
+        X_balanced = [];
+        y_balanced = [];
+
+        % Sample equal trials from each class
+        uniqueClasses = unique(y_combined);
+        for i = 1:length(uniqueClasses)
+            classIndices = find(y_combined == uniqueClasses(i));
+            randIndices = randsample(classIndices, minSize);
+            X_balanced = [X_balanced; X(randIndices, :)];
+            y_balanced = [y_balanced; y_combined(randIndices)];
+        end
+
+        % Train/Test Split
+        cv = cvpartition(size(X_balanced, 1), 'HoldOut', 0.3);
+        idx = cv.test;
+        XTrain = X_balanced(~idx, :);
+        YTrain = y_balanced(~idx, :);
+        XTest  = X_balanced(idx, :);
+        YTest  = y_balanced(idx, :);
+
+        % Train SVM
+        SVMModel = fitcecoc(XTrain, YTrain);
+        
+        % Extract beta values (linear SVM)
+        if isprop(SVMModel, 'BinaryLearners') % Check if SVM model supports beta extraction
+            betaValues{t} = cellfun(@(m) m.Beta, SVMModel.BinaryLearners, 'UniformOutput', false);
+        else
+            betaValues{t} = NaN; % Handle cases where beta extraction fails
+        end
+
+        % Test the classifier
+        YPred = predict(SVMModel, XTest);
+        accuracy(rs, t) = sum(YPred == YTest) / length(YTest);
+    end
+    fprintf('Completed SVM training ')
+end
+
+disp('SVM training completed.');
+
+end
+
+
+
