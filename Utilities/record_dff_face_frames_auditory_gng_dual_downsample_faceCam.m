@@ -9,7 +9,7 @@ function record_dff_face_frames_auditory_gng_dual_downsample_faceCam(filePath, v
 match_header = regexp(filePath, 'm\d{1,4}_\d{6}', 'match');
 header = match_header{1};
 
-filePathTrials = fullfile(filePath, strcat(header, '_trials'));
+filePathTrials = GrabFiles_sort_trials('_trials', 0, {filePath});
 
 fileBehG= GrabFiles_sort_trials('green_tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBehG{1})

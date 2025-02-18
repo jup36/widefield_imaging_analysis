@@ -24,7 +24,7 @@ end
 
 % load evtInS
 fileNidq = GrabFiles_sort_trials('_g', 0, {filePath});
-if ~isempty(fileNidq) && length(fileNidq)==1
+if ~isempty(fileNidq) && isscalar(fileNidq)
     fileEvt = GrabFiles_sort_trials('evtInS', 0, fileNidq(1));
     load(fullfile(fileEvt{1}), 'evtInS');
 else
@@ -127,7 +127,7 @@ for t = trials
         end
     end
     clear v;
-    fprintf('Trial #%d/%d is completed.\n', t, length(tbytDat));
+    fprintf('Trial #%d is completed.\n', t);
 end
 
 save(fullfile(fileBeh{1}), 'tbytDat') % to save tbytDat(t).faceCamTrelFrames

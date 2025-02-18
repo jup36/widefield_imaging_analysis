@@ -86,7 +86,7 @@ for ff = 1:length(file_list_img)
     fprintf("finished loading dff file #%d/%d\n", ff, length(file_list_img))
 end
 
-% dffCombinedProcessingDual 
+% dffCombinedProcessingDual % This is the heavylefting that performs indexing and smoothing  
 tbytDat = dffCombinedProcessingDual(filePath, imgC, tbytDat, opts, p.Results);
 
 dffCell = {tbytDat.dff};

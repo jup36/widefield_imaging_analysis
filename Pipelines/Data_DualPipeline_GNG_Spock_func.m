@@ -46,7 +46,7 @@ if isempty(path_prepro_log) || p.Results.redoManual
     % 3. bregma (drop a dot) IMPORTANT! To better align the mask with the data place the bregma a bit more anteriorly than the joint point of the sutures
 
     %mask vasculature and manual cleanup (optional)
-    prepro_log.vasc_std = 2; % note that the default vasc_std is 2
+    prepro_log.vasc_std = 5; % note that the default vasc_std is 2
     prepro_log = MaskVasculature_JP(prepro_log.cropped_aligned_img, prepro_log); % This edited function uses 'showImgAndMask' with brighter visualization of images
     close; % TODO: remake the mask itself, implement mask repositioning relative to the bregma coordinates!
 
