@@ -28,6 +28,7 @@ for t = 1:length(tbytDat)
     frT = tbytDat(t).frameTrel; % store timestamps
     [dffC{t}, dffCtF{t}] = alignToEventInterp3D(dffsmCell{t}, 0, frT, timeWin, step); 
 end
+svm.timePeth = dffCtF{1}; 
 
 %% Train/Test SVM classifier
 [svm.accuracy, svm.betaValues, svm.finalBetaValues] = trainDffClassifierC(dffC(taskI.goI), dffC(taskI.nogoI), 10, 5);

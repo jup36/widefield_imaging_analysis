@@ -13,7 +13,6 @@ function [accuracy, betaValues, finalBetaValues] = trainDffClassifierC(dffC1, df
 % y: A cell array (1 x # of class) cell array
 %    - Each class entry has # of trial x 1 class labels (e.g., 1: Go, 2:NoGo)
 
-
 %% Step 1: Validate and Extract Dimensions
 dims = cell2mat(cellfun(@size, [dffC1, dffC2], 'UniformOutput', false));
 
@@ -61,7 +60,6 @@ disp('Data successfully prepared for SVM classification.');
 
 %% Step 5: Train/Test SVM classifier
 [accuracy, betaValues, finalBetaValues] = multiClass_svm_with_cv(Xs, y, resample, numFolds, validPixels);
-
 
 end
 
