@@ -46,7 +46,7 @@ faceVids = GrabFiles_sort_trials('behvid', 0, faceVidPath);
 
 %% sort trials to work with
 if isempty(varargin)
-    trials = 1:length(tbytDat);
+    trials = 1:length(tbytDatG);
 else
     trials = [varargin{1}(:)]';
 end
@@ -145,7 +145,7 @@ for t = trials
         end
     end
     clear v;
-    fprintf('Trial #%d/%d is completed.\n', t, length(tbytDat));
+    fprintf('Trial #%d is completed.\n', t);
 end
 
 save(fullfile(fileBehG{1}), 'tbytDatG', '-append') % to save tbytDat(t).faceCamTrelFrames
