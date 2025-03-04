@@ -17,7 +17,7 @@ hold on
 % opts.crop_h = 400; % original: 540
 
 %cropping rectangle
-rect = imrect(gca,[0 0 opts.crop_w opts.crop_h]);
+rect = imrect(gca,[0 0 opts.crop_w-1 opts.crop_h-1]);
 fcn = makeConstrainToRectFcn('imrect',get(gca,'XLim'),get(gca,'YLim'));
 setPositionConstraintFcn(rect,fcn); 
 setFixedAspectRatioMode(rect,1);
@@ -45,8 +45,8 @@ bregma = setBregma(aligned_img);
 
 %get coordinates for conservative cropping. 
 %This make all recordings identically positioned with respect to bregma
-% opts.x_bregma_margin = 280-(540-448)/2; % original: 280 (adjusted for imaging data from PNI284)
-% opts.y_bregma_margin = 230-(540-448)/2; % original: 230 (adjusted for imaging data from PNI284)
+%opts.x_bregma_margin = 280-(540-opts.crop_w)/2; % Adjusted to match the brain-outline mask to new image size (PNI284)
+%opts.y_bregma_margin = 230-(540-opts.crop_h)/2; % Adjusted to match the brain-outline mask to new image size
 
 x_crop_cord = (bregma(1)-opts.x_bregma_margin);
 y_crop_cord = (bregma(2)-opts.y_bregma_margin); 

@@ -46,7 +46,7 @@ if isempty(path_prepro_log) || p.Results.redoManual
     % 3. bregma (drop a dot) IMPORTANT! To better align the mask with the data place the bregma a bit more anteriorly than the joint point of the sutures
 
     %mask vasculature and manual cleanup (optional)
-    prepro_log.vasc_std = 5; % note that the default vasc_std is 2
+    prepro_log.vasc_std = 10; % note that the default vasc_std is 2
     prepro_log = MaskVasculature_JP(prepro_log.cropped_aligned_img, prepro_log); % This edited function uses 'showImgAndMask' with brighter visualization of images
     close; % TODO: remake the mask itself, implement mask repositioning relative to the bregma coordinates!
 
@@ -106,38 +106,11 @@ for cur_fold = 1:numel(folder_list_raw)
         sprintf('sbatch --dependency=afterok:%s %s',[job_id{:}],script_name)]); % Note the dependency: Spock_CombineStacksHemoCorrect will run only after the completion of Spock_Preprocessing_Pipeline job
 
 end
+clearvars s_conn
 
-%% 
-% %% Deconvolution/normalization and Motif Fitting. Results in cross validated motifs
-% % %optional restart: selected combined dff files
-% % file_list_preprocessed = GrabFiles('501\w*dff_combined.mat');
-% job_id = cell(1,numel(file_list_preprocessed));
-% file_list_motifs = cell(1,numel(file_list_preprocessed));
-% file_list_processed = cell(1,numel(file_list_preprocessed));
-% for cur_file = 1:numel(file_list_preprocessed)
-%     [~, fn_temp] = fileparts(file_list_preprocessed{cur_file});
-%     file_list_processed{cur_file} = [gp_mac.local_bucket gp_mac.processing_intermediates fn_temp '_processed.mat']; %path in temporary folder with the train/test split data
-% 
-%     %deconvolve and split the data
-%     script_name = WriteBashScriptMac(sprintf('%d',cur_file),'ProcessAndSplitData', ...
-%         {ConvertMacToBucketPath(file_list_preprocessed{cur_file}),...
-%         ConvertMacToBucketPath(file_list_processed{cur_file}), ...
-%         'general_params_example'},...
-%         {"'%s'","'%s'","'%s'"},...
-%         'sbatch_time',5,'sbatch_memory',16,...
-%         'sbatch_path',"/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Preprocessing/");
-%     %Run job
-%     response = ssh2_command(s_conn,...
-%         ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-%         sprintf('sbatch %s',script_name)]);
-%     %get job id
-%     temp_job_id = erase(response.command_result{1},'Submitted batch job '); % passed as dependency_id to ensure 'ProcessAndSplitData' is done before 'FitMotifs_Spock'
-% 
-%     %Fit motifs and cross-validate (parallellize by chunk)
-%     [swarm_id, swarm_motifs] = FitMotifs_SpockSwarm(file_list_processed{cur_file},temp_job_id,s_conn,'general_params_dual');
-%     job_id{cur_file} = [swarm_id{:}];
-%     file_list_motifs{cur_file} = swarm_motifs;
-% end
+% Note that Deconvolution/normalization and Motif Fitting have been
+% separated as 'Data_DualPipeline_GNG_Spock_func_MotifVer.m'
+
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function p = parse_input_ctxWideImageDualPreprocess(filePath, vargs)
