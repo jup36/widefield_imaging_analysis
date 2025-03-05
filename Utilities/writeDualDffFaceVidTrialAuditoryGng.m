@@ -10,7 +10,7 @@ playspeed = frameRate/frameResampleRate; % face video frame rate
 open(labeledVid);
 
 for f = 1:length(pngs) % frames
-    if pethFrameI(f)
+%    if pethFrameI(f)
         % Load png image
         img = imread(pngs{f});
         [imgHeight, imgWidth, ~] = size(img); % Get the size of the image
@@ -55,7 +55,7 @@ for f = 1:length(pngs) % frames
         % write the labeled frame to the output video
         writeVideo(labeledVid, frame);
         %fprintf('Frame #%d is loaded and written.\n', f);
-    end
+%    end
 end
 close(labeledVid);
 end

@@ -28,6 +28,8 @@ for t = trials % trials
 
     filePath_faceDffGR = GrabFiles_sort_trials(['faceDffGR*', sprintf('trial_%d', t)], 0, filePathTrials); 
     [~, vidName] = fileparts(filePath_faceDffGR{1});
+    pethStr = convert_pethTime_string(pethTime);
+    vidName = [vidName, '_', pethStr];
 
     % Extract the number after 'trial_'
     matchedNum = regexp(vidName, 'trial_(\d+)', 'tokens');
@@ -69,7 +71,7 @@ playspeed = frameRate/frameResampleRate; % face video frame rate
 open(labeledVid);
 
 for f = 1:length(pngs) % frames
-    if pethFrameI(f)
+%    if pethFrameI(f)
         % Load png image
         img = imread(pngs{f});
         [imgHeight, imgWidth, ~] = size(img); % Get the size of the image
@@ -114,7 +116,7 @@ for f = 1:length(pngs) % frames
         % write the labeled frame to the output video
         writeVideo(labeledVid, frame);
         %fprintf('Frame #%d is loaded and written.\n', f);
-    end
+ %   end
 end
 close(labeledVid);
 end
