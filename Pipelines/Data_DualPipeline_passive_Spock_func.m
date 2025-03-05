@@ -108,15 +108,15 @@ for cur_fold = 1:numel(folder_list_raw)
 end
 
 %% Deconvolution/normalization and Motif Fitting. Results in cross validated motifs
-% %optional restart: selected combined dff files
-% file_list_preprocessed = GrabFiles('501\w*dff_combined.mat');
+%optional restart: selected combined dff files
+file_list_preprocessed = GrabFiles('501\w*dff_combined.mat');
 job_id = cell(1,numel(file_list_preprocessed));
 file_list_motifs = cell(1,numel(file_list_preprocessed));
 file_list_processed = cell(1,numel(file_list_preprocessed));
 for cur_file = 1:numel(file_list_preprocessed)  
     [~, fn_temp] = fileparts(file_list_preprocessed{cur_file});      
     file_list_processed{cur_file} = [gp_mac.local_bucket gp_mac.processing_intermediates fn_temp '_processed.mat']; %path in temporary folder with the train/test split data
-    
+
     %deconvolve and split the data    
     script_name = WriteBashScriptMac(sprintf('%d',cur_file),'ProcessAndSplitData', ...
         {ConvertMacToBucketPath(file_list_preprocessed{cur_file}),...
@@ -131,17 +131,12 @@ for cur_file = 1:numel(file_list_preprocessed)
         sprintf('sbatch %s',script_name)]);         
     %get job id
     temp_job_id = erase(response.command_result{1},'Submitted batch job '); % passed as dependency_id to ensure 'ProcessAndSplitData' is done before 'FitMotifs_Spock'
-    
+
     %Fit motifs and cross-validate (parallellize by chunk)
     [swarm_id, swarm_motifs] = FitMotifs_SpockSwarm(file_list_processed{cur_file},temp_job_id,s_conn,'general_params_dual');
     job_id{cur_file} = [swarm_id{:}]; 
     file_list_motifs{cur_file} = swarm_motifs;
 end
-
-
-
-
-
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function p = parse_input_ctxWideImageDualPreprocess(filePath, vargs)

@@ -111,7 +111,7 @@ if ~isempty(save_fn)
 end
 
 
-%% for saveing off figure use; 
+%% for saving off figure use; 
 % [path, name] = fileparts(save_fn);
 % saveCurFigs(gcf,'-dpng',sprintf('registration_%s',fn),[path filesep name, '_ProcessAndSplitFigures'],0); %close all;
 

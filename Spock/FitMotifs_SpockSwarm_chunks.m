@@ -1,17 +1,14 @@
-function [swarm_id,save_fn] = FitMotifs_SpockSwarm(fn,dependency_id,s_conn,parameter_class)
+function [swarm_id,save_fn] = FitMotifs_SpockSwarm_chunks(fn,dependency_id,s_conn,parameter_class,nChunks)
 %Camden MacDowell
 %once file fn is done (dependency), parallellizes the fitting of each data
 %chunk in fn
 
 gp = loadobj(feval(parameter_class)); 
-temp = load(fn,'data_train'); 
-num_chunks = size(temp.data_train, 3); % to get exact number of chuncks for the loop below 
-%num_chunks = gp.w_approx_chunk_num;
 
 %generate swarm
-swarm_id = cell(1,num_chunks);
-save_fn = cell(1,num_chunks);
-for i = 1:num_chunks
+swarm_id = cell(1,nChunks);
+save_fn = cell(1,nChunks);
+for i = 1:nChunks
     [~, fn_temp] = fileparts(fn);  
     save_fn{i} = [gp.local_bucket_mac gp.processing_intermediates_mac fn_temp sprintf('_fit_chunk%d.mat',i)];
         
@@ -27,7 +24,7 @@ for i = 1:num_chunks
         sprintf('sbatch --dependency=afterok:%s %s',dependency_id,script_name)]);
     
     swarm_id{i} = erase(response.command_result{1},'Submitted batch job ');
-    if i ~=num_chunks
+    if i ~=nChunks
         swarm_id{i} = [swarm_id{i} ','];
     end
 end
