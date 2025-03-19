@@ -21,7 +21,7 @@ end
 
 %load general params (this is for anything after preprocessing)
 parameter_class = 'general_params_dual';
-gp = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates how I load this class in other functions by just passing the string.
+gp = loadobj(feval(parameter_class)); 
 
 % Get a cell array (fnC) that contains filePaths to 'dff_combined' matfiles
 file_list_dff = GrabFiles_subfolders(fileKeyword, filePathImg); % use GrabFiles_sort_trials to sort both files and folders

@@ -55,8 +55,8 @@ end
 downSampleFactor = 4; % default downsample factor to downsample the faceCam frames
 close all;
 for t = trials
-    pngSubDirG = GrabFiles_sort_trials(['dffG*', sprintf('trial_%d', t)], 0, {filePathTrials});
-    pngSubDirR = GrabFiles_sort_trials(['dffR*', sprintf('trial_%d', t)], 0, {filePathTrials});
+    pngSubDirG = GrabFiles_sort_trials(['dffG*', sprintf('trial_%d', t)], 0, filePathTrials);
+    pngSubDirR = GrabFiles_sort_trials(['dffR*', sprintf('trial_%d', t)], 0, filePathTrials);
 
     % load dff green
     tbytDffsmG = load(fullfile(pngSubDirG{1}, 'tbytDff.mat'), 'tbytDffsm');

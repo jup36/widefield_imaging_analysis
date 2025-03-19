@@ -72,7 +72,7 @@ assert(strcmp(p.Results.imageToUse, 'dff_combined'))
 % load preprocessed dffs ('dff_combined.mat')
 
 assert(strcmpi(p.Results.channelOfInterest, 'green') || strcmpi(p.Results.channelOfInterest, 'red')) % Must be either green or red
-[file_list_img, ~] = GrabFiles_sort_trials(p.Results.channelOfInterest, 0, fileImg(1));
+[~, file_list_img] = GrabFiles_subfolders(p.Results.channelOfInterest, fileImg(1)); 
 
 imgC = cell(1, length(file_list_img));
 for ff = 1:length(file_list_img)

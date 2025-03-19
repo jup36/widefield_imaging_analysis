@@ -22,22 +22,23 @@ function PlotMotifs(data,varargin)
 %     PlotMotifs(temp.W_clust_smooth);
 % end
 % 
+% data = W_basis; 
 
 close all
 
 %Set options
 %Define options
-opts.SaveDir = pwd; %Save location
+opts.SaveDir = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/motif_figures'; %Save location
 opts.Verbose = 1; %how chatty should we be?
 opts.FontSize = 16;
 opts.FontWeight = 'bold';
 opts.NameStr = '';
-opts.BregmaX = 1.97; %conversion ratio for finding location to plot bregma
+opts.BregmaX = 1.94; %conversion ratio for finding location to plot bregma
 opts.BregmaY = 2.27; %conversion ratio for finding locatio to plot bremga
-opts.MaskDir = 'Z:\Rodent Data\Wide Field Microscopy\VPA_Mesoscale_Analysis\FigureMask.mat'; %the mask used for figure plotting
-opts.caxis = [0 95]; %percentile of maximum intensity
+opts.MaskDir = '/Users/jp3025/Documents/codes/Widefield_Imaging_Analysis/Preprocessing/brainoutline_64.mat'; %the mask used for figure plotting
+opts.caxis = [0 99]; %percentile of maximum intensity
 opts.kernel = [];
-opts.includeflow = 0; %add flow arrows?
+opts.includeflow = 1; %add flow arrows?
 opts.Percentile = 50; %percent of pixels to perform analysis on. 
 opts.QuiverScale = 0.75; %arrow scaling factor for quiver
 opts.FlowDownsample = 2; 
@@ -46,14 +47,14 @@ opts = ParseOptionalInputs(opts,varargin);
 
 %load mask;
 mask = load(opts.MaskDir);
-mask = mask.mask;
+mask = mask.mask_64;
 
 %break mask into l and r hemisphere
 temp = mask;
-temp(:,34:end) = 0;
+temp(:,32:end) = 0;
 hemi_mask{1} = temp; 
 temp = mask;
-temp(:,1:34) = 0;
+temp(:,1:32) = 0;
 hemi_mask{2} = temp; 
 
 for cur_F = 1:size(data,2)
@@ -72,7 +73,6 @@ for cur_F = 1:size(data,2)
         end
     end
     cur_data(:,:,end+1) = zeros(nX,nY);
-    
 
     %%
     climits = [prctile(cur_data(:),opts.caxis(1)),prctile(cur_data(:),opts.caxis(2))];
@@ -80,7 +80,7 @@ for cur_F = 1:size(data,2)
     %Loop through the individual images of the rec
     for cur_T = 1:size(cur_data,3)-1        
         %Create figure
-        fig = figure();  hold on
+        fig = figure();  hold on; 
         camroll(180)        
         
         %loop through each hemisphere
@@ -135,12 +135,12 @@ for cur_F = 1:size(data,2)
         end %Hemi loop    
         %Addbregma
         scatter(bX,bY,600,'.','MarkerFaceColor',[1 0.2 .2],'MarkerEdgeColor',[1 0.2 .2]); 
-        ylim([0 68]);
-        xlim([0 68]);
+        ylim([0 64]);
+        xlim([0 64]);
         
         %Set Axes
-        ylim([0 68]);
-        xlim([0 68]);
+        ylim([0 64]);
+        xlim([0 64]);
         drawnow      
         
         set(gca,'FontSize',opts.FontSize,'FontWeight',opts.FontWeight);

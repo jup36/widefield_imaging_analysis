@@ -1,4 +1,4 @@
-function RefitBasisMotifs(fn, basis_dir, chunk, parameter_class, save_dir)
+function RefitBasisMotifs_JP(fn, basis_dir, chunk, parameter_class, save_dir)
 
 %Add paths
 if ispc
@@ -25,7 +25,7 @@ data_train = temp.data_train(:,:,chunk);
 data_test = temp.data_test(:,:,chunk);
 nanpxs = temp.nanpxs; 
 [~,name] = fileparts(fn);
-name = [name, sprintf('refitchunk_%d',chunk)];
+name = [name, sprintf('_refitchunk_%d',chunk)];
 
 %recondition, smooth, and flatten
 if numel(gp.smt_kernel)>2 %autodetermine appropriate smoothing value

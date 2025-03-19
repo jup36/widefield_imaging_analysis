@@ -19,6 +19,7 @@ function [data_norm, nanpxs, data_train, data_test] = ProcessAndSplitDataAuditor
 %   data_test
 
 load(fnC_fn, 'fnC'); 
+% fnC = cellfun(@(a) ConvertBucketToMacPath(a), fnC, 'un', 0); % to convert the Spock path back to Mac Path
 
 if ~ispc
     addpath(genpath('/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/'))
@@ -27,8 +28,8 @@ end
 
 gp = loadobj(feval(parameter_class)); 
 
-num_chunks = size(fnC, 1); 
-assert(size(fnC, 2)==2); % train and test
+num_chunks = size(fnC, 1); % the number of train/test splits 
+assert(size(fnC, 2)==2);   % train and test
 assert(sum(cellfun(@isempty, fnC(:)))==0); 
 
 %% Load dff stacks
@@ -71,6 +72,7 @@ dataC = cellfun(@(a) a(1:minFrN, :), dataC, 'UniformOutput', false);
 % back to stack orientation and stack
 dataC = cellfun(@(a, b) conditionDffMat(a, b, [], [rowN, colN, minFrN]), dataC, nanpxsC, 'UniformOutput', false); 
 data = cat(3, dataC{:}); % stack up all image stacks (e.g., 64 x 64 x N total frames)
+% isequaln(dataC{2, 1}, data(:,:,861:2*860)) % sanity check (this must be true as MATLAB is column-major
 
 %% Denoise with PCA (removed banded pixels)
 if gp.w_pca_denoise
@@ -109,11 +111,11 @@ count_trainsets = 0;
 count_testsets = 0; 
 for i = 1:numel(dataC)
     tempDat = data_norm(:, (i-1)*minFrN+1:i*minFrN);
-    if mod(i,2)==1
+    if i<=size(dataC,1) % as data was stacked columnwise, the first column MUST be train set
         count_trainsets = count_trainsets + 1; 
         data_train(:, :, count_trainsets) = tempDat; % odd chunks 
     else
-        count_testsets = count_testsets + 1;
+        count_testsets = count_testsets + 1; % as data was stacked columnwise, the second column MUST be test set
         data_test(:, :, count_testsets) = tempDat; % even chunks
     end
 end
