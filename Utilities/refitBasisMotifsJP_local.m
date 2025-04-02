@@ -11,8 +11,8 @@ function refitBasisMotifsJP_local(filePathImg, fileKeyword, basis_dir, parameter
 %       
 % E.g., 
 filePathImg = {'/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_122424/task/m1045_122424_task_day4-8_img'}; % usually a cell 
-fileKeyword = '_red_dff_combined.mat'; 
-basis_dir = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/clusterW_output_CAmotifs.mat';
+fileKeyword = '_green_dff_combined.mat'; 
+basis_dir = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/clusterW_output_DAmotifs.mat';
 parameter_class = 'general_params_dual';
 save_dir = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_122424/task/Matfiles';
 

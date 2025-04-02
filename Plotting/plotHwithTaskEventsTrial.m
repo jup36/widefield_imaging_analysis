@@ -1,6 +1,7 @@
 function plotHwithTaskEventsTrial(saveFigFullPath, hmat, motif_ind, timestamps, trialId, tbytDat, trTypeI)
 
-cTable = slanCM('set3', 11); 
+%cTable = slanCM('set3', 11); 
+cTable = slanCM('dark2', 8); 
 cTable = [[0 0 0]; cTable];  % Ensuring black for first color
 
 %assert(length(motif_ind)<=5) % Prevent overcrowding the plot

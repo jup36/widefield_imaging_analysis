@@ -1,49 +1,59 @@
-function h = plotLearningCurve(datC, cMat)
-    % Function to plot learning curves for multiple animals across days
+function h = plotLearningCurve(dat, cMat)
+    % Function to plot learning curves for multiple animals across days.
+    % Each animal has one data point per day, and the data points are connected.
+    %
     % Inputs:
-    %   datC - Nx1 cell array where each entry corresponds to a mouse
-    %          Each mouse has a 1xD cell array, where each entry is a 1x3 array (data from 3 blocks per session).
-    %   cMat - Nx3 matrix specifying RGB colors for each animal
+    %   dat  - Nx1 cell array, where each cell is a 1xD numeric array 
+    %          (one value per day for that animal).
+    %   cMat - Nx3 matrix specifying RGB colors for each animal.
     
     if nargin < 2
-        error('Both datC and cMat must be provided.');
+        error('Both dat and cMat must be provided.');
     end
     
-    numMice = length(datC);  % Number of mice
-    h = figure; hold on; % Initialize figure
-    set(gca, 'XTick', [], 'XColor', 'w'); % Remove x-axis ticks for clarity
+    numMice = length(dat);
     
-    legendEntries = cell(numMice, 1); % Store legend labels
+    % Determine the total number of days (use the maximum across animals)
+    D = max(cellfun(@length, dat));
     
-    % Loop through each mouse
+    % Create figure and hold on.
+    h = figure; hold on;
+    set(gca, 'XColor', 'k');  % Ensure x-axis is visible.
+    
+    % Preallocate legend handles and entries.
+    legendHandles = gobjects(numMice, 1);
+    legendEntries = cell(numMice, 1);
+    
+    % Loop through each mouse and plot their data as a continuous line.
     for iMouse = 1:numMice
-        mouseData = datC{iMouse}; % Get data for this mouse
-        numDays = length(mouseData); % Number of days
+        mouseData = dat{iMouse}; % Get data for this mouse
+        numDays = length(mouseData); % Number of days for this mouse
+        xDays = 1:numDays; % X-axis values (Day indices)
         
-        xPos = []; % X-axis positions for plotting
-        yPos = []; % Y-axis values
+        % Plot the mouse's data as a connected line
+        hPlot = plot(xDays, mouseData, '-o', ...
+            'Color', cMat(iMouse, :), ...
+            'MarkerFaceColor', cMat(iMouse, :), ...
+            'MarkerEdgeColor', 'none', 'LineWidth', 1.5);
         
-        for iDay = 1:numDays
-            if isempty(mouseData{iDay})
-                continue; % Skip if there's no data for the day
-            end
-            % Define x positions for three blocks
-            xBase = (iDay - 1) * 4; % Leave a gap of 1 between days (3 blocks + 1 space)
-            xPos = [xPos, xBase + (1:3)];
-            yPos = [yPos, mouseData{iDay}]; % Append y values
-        end
-        
-        % Plot each mouse's data
-        plot(xPos, yPos, '-o', 'Color', cMat(iMouse, :), ...
-            'MarkerFaceColor', cMat(iMouse, :), 'MarkerEdgeColor', 'k', 'LineWidth', 1.5);
-        
-        % Store legend entry
+        % Store the first valid plot handle for legend
+        legendHandles(iMouse) = hPlot;
         legendEntries{iMouse} = sprintf('Mouse %d', iMouse);
     end
     
-    xlabel('Days (with gaps)'); ylabel('Performance');
+    % Set x-axis ticks to match day numbers
+    set(gca, 'XTick', 1:D, ...
+             'XTickLabel', arrayfun(@(d) sprintf('Day %d', d), 1:D, 'UniformOutput', false), ...
+             'XTickLabelRotation', 45); % Rotate labels for better readability
+
+    % Set limits
+    xlim([0.5, D + 0.5]); % Add a small margin around the days
+    
+    xlabel('Days'); ylabel('Performance');
     title('Learning Curve');
-    legend(legendEntries, 'Location', 'best');
+    legend(legendHandles, legendEntries, 'Location', 'best');
     box off;
     hold off;
+    grid on; 
+    set(gca, 'TickDir', 'out')
 end
