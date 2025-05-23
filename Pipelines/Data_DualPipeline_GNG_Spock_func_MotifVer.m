@@ -40,7 +40,11 @@ save(filePathImg_dffList, 'fnC')
 %% Deconvolution/normalization and Motif Fitting. Results in cross validated motifs
 % optional restart: selected combined dff files
 % file_list_preprocessed = GrabFiles('501\w*dff_combined.mat');
-file_processed = [gp.local_bucket_mac gp.processing_intermediates_mac fileheader '_processed' fileKeyword]; % path in temporary folder with the train/test split data
+file_processed_dir = fullfile(gp.local_bucket_mac, gp.processing_intermediates_mac, [fileheader, '_motif']); 
+if exist(file_processed_dir, "dir")~=7
+    mkdir(file_processed_dir)
+end
+file_processed = fullfile(file_processed_dir, [fileheader '_processed' fileKeyword]); 
 
 %deconvolve and split the data 
 script_name = WriteBashScriptMac(sprintf('%d', 1),'ProcessAndSplitDataAuditoryGng', ...

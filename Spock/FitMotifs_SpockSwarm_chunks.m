@@ -9,8 +9,8 @@ gp = loadobj(feval(parameter_class));
 swarm_id = cell(1,nChunks);
 save_fn = cell(1,nChunks);
 for i = 1:nChunks
-    [~, fn_temp] = fileparts(fn);  
-    save_fn{i} = [gp.local_bucket_mac gp.processing_intermediates_mac fn_temp sprintf('_fit_chunk%d.mat',i)];
+    [fn_dir, fn_temp] = fileparts(fn);  
+    save_fn{i} = fullfile(fn_dir, [fn_temp sprintf('_fit_chunk%d.mat',i)]);
         
     script_name = WriteBashScriptMac(sprintf('motifchunk%d',i), ...
         'FitMotifs_Spock',{ConvertMacToBucketPath(fn), ...

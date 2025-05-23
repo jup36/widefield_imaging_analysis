@@ -27,8 +27,8 @@ opts.x_bregma_margin = 280-(540-opts.crop_w)/2; % Adjusted to match the brain-ou
 opts.y_bregma_margin = 230-(540-opts.crop_h)/2; % Adjusted to match the brain-outline mask to new image size
 
 %load general params (this is for anything after preprocessing)
-parameter_class = 'general_params_mac';
-gp_mac = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates how I load this class in other functions by just passing the string.
+%parameter_class = 'general_params_mac';
+%gp_mac = loadobj(feval(parameter_class)); %this is not needed here, but demonstrates how I load this class in other functions by just passing the string.
 
 %% Manual Portion
 [file_list_first_stack, folder_list_raw] = GrabFiles_subfolders(fileKeyword, filePathImg); % use GrabFiles_sort_trials to sort both files and folders
@@ -96,7 +96,7 @@ for cur_fold = 1:numel(folder_list_raw)
     [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
     file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
     script_name = WriteBashScriptMac(sprintf('%d_%d_combine', cur_fold, cur_file), ...
-        'Spock_CombineStacksHemoCorrect', ...
+        'Spock_CombineStacksHemoCorrect1', ...
         {ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_dual'}, ...
         {"'%s'","'%s'","'%s'"});
 

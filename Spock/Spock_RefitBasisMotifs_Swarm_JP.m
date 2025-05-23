@@ -1,4 +1,4 @@
-function Spock_RefitBasisMotifs_Swarm_JP(filePathImg, fileKeyword, basis_dir, job_id, s_conn, parameter_class, save_dir)
+function Spock_RefitBasisMotifs_Swarm_JP(filePathImg, fileKeyword, basis_dir, parameter_class, save_dir)
 %Camden MacDowell
 % customized by Junchol Park
 
@@ -15,8 +15,15 @@ function Spock_RefitBasisMotifs_Swarm_JP(filePathImg, fileKeyword, basis_dir, jo
 %       Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_122424/task/m1045_122424_task_day4-8_img'}; % usually a cell 
 % fileKeyword = '_red_dff_combined.mat'; 
 % basis_dir = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/clusterW_output_CAmotifs.mat';
-% parameter_class = 'general_params_dual.m';
+% parameter_class = 'general_params_dual';
 % save_dir = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_122424/task/Matfiles';
+
+if exist('s_conn', 'var')~=1
+    % Open ssh connection
+    username = input(' Spock Username: ', 's'); % Use PU (NOT PNI) id and password as of 11/1/24
+    password = passcode();
+    s_conn = ssh2_config('spock.princeton.edu',username,password);
+end
 
 if iscell(filePathImg)
     filePathImg = filePathImg{1}; 
@@ -39,20 +46,23 @@ file_processed = [gp.local_bucket_mac gp.processing_intermediates_mac fileheader
 %generate swarm
 temp = load(file_processed, 'data_test');
 for cur_chunk = 1:size(temp.data_test,3)
-    script_name = WriteBashScript(sprintf('%d',1),'RefitBasisMotifs_JP',{ConvertMacToBucketPath(file_processed),...
+    script_name = WriteBashScriptMac(sprintf('refitchunk%d',cur_chunk),'RefitBasisMotifs_JP',{ConvertMacToBucketPath(file_processed),...
         ConvertMacToBucketPath(basis_dir),cur_chunk,parameter_class,ConvertMacToBucketPath(save_dir)},...
         {"'%s'","'%s'",'%d',"'%s'","'%s'"},...
         'sbatch_time',59,'sbatch_memory',10,...
         'sbatch_path',"/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Spock/");
+    ssh2_command(s_conn,...
+        ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
+        sprintf('sbatch %s',script_name)]);
 
-    if ~isempty(job_id)
-        ssh2_command(s_conn,...
-            ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-            sprintf('sbatch --dependency=afterok:%s %s',job_id,script_name)]);
-    else
-        ssh2_command(s_conn,...
-            ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
-            sprintf('sbatch %s',script_name)]);
-    end
+    % if ~isempty(job_id)
+    %     ssh2_command(s_conn,...
+    %         ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
+    %         sprintf('sbatch --dependency=afterok:%s %s',job_id,script_name)]);
+    % else
+    %     ssh2_command(s_conn,...
+    %         ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts/ ;',... %cd to directory
+    %         sprintf('sbatch %s',script_name)]);
+    % end
 end
 

@@ -49,8 +49,8 @@ classdef general_params_dual
         
         
         %specific terms for pMU
-        lambda = 0.0005; 
-        %lambda = sort(logspace(-1,-5,12), 'ascend'); %if range, then lambda sweep performed. 0.0005
+        %lambda = 0.0005; 
+        lambda = sort(logspace(-1,-5,12), 'ascend'); %if range, then lambda sweep performed. 0.0005
         ortho_H = 1;
         ortho_W = 0;
         sparse_H = 1;

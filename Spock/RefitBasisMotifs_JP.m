@@ -73,7 +73,7 @@ stats_refit.smoothingkernel = gp.smt_kernel;
 %get residuals
 residuals = data_test-tensor_convolve(w,H);
 
+%save off
 save([save_dir filesep name 'test.mat'],'w','H','stats_refit','bad_pxl','residuals');
 
-
-%save off
+fprintf('\n\t End of a Successful Run');
