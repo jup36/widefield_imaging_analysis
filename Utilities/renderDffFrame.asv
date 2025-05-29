@@ -1,0 +1,100 @@
+function renderedImg = renderDffFrame(dffFrame, hemiMaskC, targetSize, colorAxis)
+
+targetHeight = targetSize(1);
+targetWidth = targetSize(2);
+
+fig = figure('Visible', 'off', ...
+    'Units', 'pixels', ...
+    'Position', [100, 100, targetWidth, targetHeight], ...
+    'Color', 'k');  % figure background
+
+ax = axes(fig);
+set(ax, 'Units', 'normalized', ...
+    'Position', [0 0 1 1], ...
+    'Color', 'k');  % axes background
+
+axis off; hold on;
+
+% Loop through hemispheres
+for hemi = 1:2
+    cc = bwconncomp(hemiMaskC{hemi},8);
+    s = regionprops(cc, 'ConvexHull');
+
+    fill(s(1).ConvexHull(:,1), s(1).ConvexHull(:,2), 'k', 'LineWidth', 2);  % background fill
+
+    fH = imagesc(dffFrame);
+    set(fH, 'AlphaData', hemiMaskC{hemi});
+
+    plot(s(1).ConvexHull(:,1), s(1).ConvexHull(:,2), 'w', 'LineWidth', 2);
+end
+
+colormap(magma);
+caxis(colorAxis);
+set(gca, 'YDir', 'reverse');  % flip vertically
+set(gca, 'Position', [0 0 1 1], 'Units', 'normalized');  % fill figure
+
+% Capture frame
+frameImg = getframe(gca);
+renderedImg = frameImg.cdata;
+
+close(fig);
+end
+
+
+
+% function renderedImg = renderDffFrame(dffFrame, hemiMaskC, targetSize, colorAxis)
+% % Set figure and axes to high-res canvas (e.g., 432×352)
+%
+% targetHeight = targetSize(1);
+% targetWidth = targetSize(2);
+%
+% fig = figure('Visible', 'on', ...
+%     'Units', 'pixels', ...
+%     'Position', [100, 100, targetWidth, targetHeight], ...
+%     'Color', 'k');
+% ax = axes(fig);
+% set(ax, 'Units', 'normalized', 'Position', [0 0 1 1]);
+% axis off; hold on;
+% camroll(180)
+%
+% %loop through each hemisphere
+% for hemi = 1:2
+%     %Black background (to smooth the pixelated edges)
+%     cc = bwconncomp(hemiMaskC{hemi},8);
+%     s = regionprops(cc,'Area','Centroid','ConvexHull');
+%     fill(s(1).ConvexHull(:,1),s(1).ConvexHull(:,2),'k','LineWidth',2);
+%
+%     %Plot the raw data
+%     fH = imagesc(dffFrame);
+%
+%     %Make background transparent
+%     set(fH, 'AlphaData',hemiMaskC{hemi});
+%
+%     %Draw a smooth border to smooth the pixelations
+%     plot(s(1).ConvexHull(:,1),s(1).ConvexHull(:,2),'Color','w','LineWidth',3);
+%
+%     %Set figure parameters
+%     colormap magma
+%     axis off;
+%     axis normal;     % DO NOT use 'image' or 'square'
+%     %pbaspect([1 1 1]); % Optional: remove if it causes issues
+%     caxis(colorAxis)
+% end
+%
+% % Ensure no whitespace/margins are added
+% set(gca, 'Position', [0 0 1 1], 'Units', 'normalized');
+%
+%
+% % tempFile = [tempname, '.png'];
+% % exportgraphics(ax, tempFile, 'Resolution', 96);  % 96 DPI ensures 1:1 mapping of pixels
+% % renderedImg = imread(tempFile);  % Now this will be ~432 x 352
+% % delete(tempFile);  % optional cleanup
+%
+%
+% % Capture only the content area
+% frameImg = getframe(gca);
+% renderedImg = frameImg.cdata;
+%
+% close(fig);
+%
+% end

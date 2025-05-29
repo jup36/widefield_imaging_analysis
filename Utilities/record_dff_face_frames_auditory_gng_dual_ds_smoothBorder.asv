@@ -40,6 +40,18 @@ else
     load(fullfile(evtInS_folder, evtInS_file), 'evtInS')
 end
 
+%load mask;
+opts.MaskDir = 'Z:\Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\Preprocessing\brainoutline_64.mat'; %the mask used for figure plotting
+mask = load(opts.MaskDir);
+mask = mask.mask_64;
+%break mask into l and r hemisphere
+temp = mask;
+temp(:,32:end) = 0;
+hemi_mask{1} = temp; 
+temp = mask;
+temp(:,1:32) = 0;
+hemi_mask{2} = temp; 
+
 %% list face videos
 faceVidPath = GrabFiles_sort_trials([header, '*', '_vid'], 0, {filePath});
 faceVids = GrabFiles_sort_trials('behvid', 0, faceVidPath);
@@ -96,13 +108,15 @@ for t = trials
                 % Read the face frame
                 faceFrame = readFrame(v);
 
-                % Resize (interpolate) dff to match faceFrame
-                tbytDffGsmIntpRs = imresize(tbytDffsmGIntp(:, :, fr), [size(faceFrame, 1), size(faceFrame, 2)]);
-                tbytDffRsmIntpRs = imresize(tbytDffsmRIntp(:, :, fr), [size(faceFrame, 1), size(faceFrame, 2)]);
+                tbytDffsmGIntpFr = tbytDffsmGIntp(:, :, fr); 
+                tbytDffsmRIntpFr = tbytDffsmRIntp(:, :, fr); 
 
-                % Replace NaNs with a value that corresponds to black
-                tbytDffGsmIntpRs(isnan(tbytDffGsmIntpRs)) = -Inf;
-                tbytDffRsmIntpRs(isnan(tbytDffRsmIntpRs)) = -Inf;
+                tbytDffsmGIntpFrRd = renderDffFrame(tbytDffsmGIntpFr, hemi_mask, [-2 2]);
+                tbytDffsmRIntpFrRd = renderDffFrame(tbytDffsmRIntpFr, hemi_mask, [-5 5]);
+
+                % Resize (interpolate) dff to match faceFrame
+                tbytDffGsmIntpRs = imresize(tbytDffsmGIntpFrRd, [size(faceFrame, 1), size(faceFrame, 2)]);
+                tbytDffRsmIntpRs = imresize(tbytDffsmRIntpFrRd, [size(faceFrame, 1), size(faceFrame, 2)]);
 
                 % Create a colormap
                 cmap = [0, 0, 0; hot(256)];

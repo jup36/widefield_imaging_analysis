@@ -25,7 +25,8 @@ end
 match_header = regexp(filePath, 'm\d{1,4}_\d{6}', 'match');
 header = match_header{1};
 
-fileBeh = GrabFiles_sort_trials('tbytDat_parseGng', 0, {fullfile(filePath, 'Matfiles')});
+fileBeh = GrabFiles_sort_trials(['tbytDat_parseGng' ...
+    ''], 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh{1})
     fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
 end
@@ -72,7 +73,7 @@ assert(strcmp(p.Results.imageToUse, 'dff_combined'))
 % load preprocessed dffs ('dff_combined.mat')
 
 assert(strcmpi(p.Results.channelOfInterest, 'green') || strcmpi(p.Results.channelOfInterest, 'red')) % Must be either green or red
-[file_list_img, ~] = GrabFiles_sort_trials(p.Results.channelOfInterest, 0, fileImg(1));
+[~, file_list_img] = GrabFiles_subfolders(p.Results.channelOfInterest, fileImg(1)); 
 
 imgC = cell(1, length(file_list_img));
 for ff = 1:length(file_list_img)

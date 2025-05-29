@@ -1,4 +1,4 @@
-function record_dff_face_frames_auditory_gng_dual_downsample_faceCam(filePath, varargin)
+function record_dff_face_frames_auditory_gng_dual_ds_smoothBorder(filePath, varargin)
 % filePath = '/Volumes/buschman/Rodent Data/Behavioral_dynamics_cj/DA019/DA019_042224';
 % e.g., dff = tbytDat(21).dffsm
 %By default this function iterate through all trials and record frames of
@@ -16,14 +16,14 @@ if isempty(fileBehG{1})
     fileBehG = GrabFiles_sort_trials('green_tbytDat_dff', 1, {filePath});
 end
 tbytDatG = load(fullfile(fileBehG{1}), 'tbytDat');
-tbytDatG = tbytDatG.('tbytDat'); clearvars tbytDat 
+tbytDatG = tbytDatG.('tbytDat'); clearvars tbytDat
 
 fileBehR= GrabFiles_sort_trials('red_tbytDat_dff', 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBehR{1})
     fileBehR = GrabFiles_sort_trials('red_tbytDat_dff', 1, {filePath});
 end
 tbytDatR = load(fullfile(fileBehR{1}), 'tbytDat');
-tbytDatR = tbytDatR.('tbytDat'); clearvars tbytDat 
+tbytDatR = tbytDatR.('tbytDat'); clearvars tbytDat
 
 tbytDatG = addRewardTrI(tbytDatG);
 tbytDatR = addRewardTrI(tbytDatR);
@@ -39,6 +39,18 @@ else
     [evtInS_file, evtInS_folder] = uigetfile('*.mat', 'Select the evtInS file for faceCam!', filePath);
     load(fullfile(evtInS_folder, evtInS_file), 'evtInS')
 end
+
+%load mask;
+opts.MaskDir = 'Z:\Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\Preprocessing\brainoutline_64.mat'; %the mask used for figure plotting
+mask = load(opts.MaskDir);
+mask = mask.mask_64;
+%break mask into l and r hemisphere
+temp = mask;
+temp(:,32:end) = 0;
+hemi_mask{1} = temp;
+temp = mask;
+temp(:,1:32) = 0;
+hemi_mask{2} = temp;
 
 %% list face videos
 faceVidPath = GrabFiles_sort_trials([header, '*', '_vid'], 0, {filePath});
@@ -95,49 +107,44 @@ for t = trials
 
                 % Read the face frame
                 faceFrame = readFrame(v);
+                targetSize = [size(faceFrame, 1), size(faceFrame, 2)];
 
-                % Resize (interpolate) dff to match faceFrame
-                tbytDffGsmIntpRs = imresize(tbytDffsmGIntp(:, :, fr), [size(faceFrame, 1), size(faceFrame, 2)]);
-                tbytDffRsmIntpRs = imresize(tbytDffsmRIntp(:, :, fr), [size(faceFrame, 1), size(faceFrame, 2)]);
+                tbytDffsmGIntpFr = tbytDffsmGIntp(:, :, fr);
+                tbytDffsmRIntpFr = tbytDffsmRIntp(:, :, fr);
 
-                % Replace NaNs with a value that corresponds to black
-                tbytDffGsmIntpRs(isnan(tbytDffGsmIntpRs)) = -Inf;
-                tbytDffRsmIntpRs(isnan(tbytDffRsmIntpRs)) = -Inf;
-
-                % Create a colormap
-                cmap = [0, 0, 0; hot(256)];
-                dffImageG = ind2rgb(im2uint8(mat2gray(tbytDffGsmIntpRs, [-2 2])), cmap);
-                dffImageR = ind2rgb(im2uint8(mat2gray(tbytDffRsmIntpRs, [-5 5])), cmap);
+                % Get resized, masked images using rendering
+                dffImageG = renderDffFrame(tbytDffsmGIntpFr, hemi_mask, targetSize, [-2 2]);
+                dffImageR = renderDffFrame(tbytDffsmRIntpFr, hemi_mask, targetSize, [-5 5]);
 
                 % Insert text to indicate tone presentation
                 cueOnT = tbytDatG(t).frameT(find(tbytDatG(t).frameStimI, 1, 'first'));
                 cueOffT = tbytDatG(t).frameT(find(tbytDatG(t).frameStimI, 1, 'last'));
-                position = [size(dffImageG, 2) / 2, 5]; % [x, y] position
+                position = [size(dffImageG, 2)/2+1, 4]; % [x, y] position
 
                 % Check for tone presentation
                 if targetFaceTs(fr) >= cueOnT && targetFaceTs(fr) <= cueOffT
                     if tbytDatG(t).rewardTrI == 1 % Reward tone
                         dffImageG = insertText(dffImageG, position, "Tone1", ...
-                            'AnchorPoint', 'CenterTop', 'FontSize', 20, ...
+                            'AnchorPoint', 'CenterTop', 'FontSize', 18, ...
                             'TextColor', 'white', 'BoxColor', [0 0 255], ...
-                            'BoxOpacity', 0.4);
+                            'BoxOpacity', 0.6);
                     elseif tbytDatG(t).punishTrI == 1 % Punishment tone
                         dffImageG = insertText(dffImageG, position, "Tone2", ...
-                            'AnchorPoint', 'CenterTop', 'FontSize', 20, ...
+                            'AnchorPoint', 'CenterTop', 'FontSize', 18, ...
                             'TextColor', 'white', 'BoxColor', [255 0 0], ...
-                            'BoxOpacity', 0.4);
+                            'BoxOpacity', 0.6);
                     end
                 end
 
                 % Concatenate dff and face frames horizontally
-                dffGRFaceConcat = cat(2, im2uint8(dffImageG), im2uint8(dffImageR), faceFrame);
+                dffGRFaceConcat = cat(2, im2uint8(dffImageG), dffImageR, faceFrame);
 
                 % Save the image as png
-                pngGRdir = fullfile(filePathTrials{1}, ['faceDffGR_', sprintf('trial_%d', t)]); 
+                pngGRdir = fullfile(filePathTrials{1}, ['faceDffGR_', sprintf('trial_%d', t)]);
                 if exist(pngGRdir)~=7
                     mkdir(pngGRdir)
                 end
-                
+
                 imwrite(dffGRFaceConcat, fullfile(pngGRdir, pngName));
 
                 fprintf('Frame #%d/%d of trial #%d is labeled and saved.\n', fr, length(faceFramesToRead), t);
@@ -152,6 +159,64 @@ save(fullfile(fileBehG{1}), 'tbytDatG', '-append') % to save tbytDat(t).faceCamT
 save(fullfile(fileBehR{1}), 'tbytDatR', '-append') % to save tbytDat(t).faceCamTrelFrames
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    function renderedImg = renderDffFrame(dffFrame, hemiMaskC, targetSize, colorAxis)
+    %This script takes df/f image matrix (dffFrame) and hemi brain masks
+    % (hemiMaskC) to render a masked df/f image, which is also resized to match
+    % the target size. 
+    % 5/29/2025 Junchol Park
+
+        targetHeight = targetSize(1);
+        targetWidth = targetSize(2);
+
+        % Set up the figure
+        fig = figure('Visible', 'off', ...
+            'Units', 'pixels', ...
+            'Position', [100, 100, targetWidth, targetHeight], ...
+            'Color', 'k');  % figure background
+
+        ax = axes(fig);
+        set(ax, 'Units', 'normalized', ...
+            'Position', [0 0 1 1], ...
+            'Color', 'k');  % axes background
+        axis off; hold on;
+
+        % Upsample the image and masks to target size
+        upsampledImg = imresize(dffFrame, targetSize, 'bilinear');
+        upsampledMask = cellfun(@(x) imresize(double(x), targetSize, 'nearest') > 0.5, hemiMaskC, 'UniformOutput', false);
+
+        % Optionally mask the image data (recommended for aesthetics)
+        combinedMask = upsampledMask{1} | upsampledMask{2};
+        maskedImg = upsampledImg;
+        maskedImg(~combinedMask) = NaN;
+
+        % Display the masked image
+        imshow(maskedImg, colorAxis, 'InitialMagnification', 'fit');
+        colormap(ax, magma);
+        caxis(colorAxis);
+
+        % Overlay just the borders — do NOT fill with black
+        for hemi = 1:2
+            cc = bwconncomp(upsampledMask{hemi}, 8);
+            s = regionprops(cc, 'ConvexHull');
+            if ~isempty(s)
+                % Only plot white outline — no fill!
+                plot(s(1).ConvexHull(:,1), s(1).ConvexHull(:,2), 'w', 'LineWidth', 3);
+            end
+        end
+
+        % Set axis range and orientation
+        axis([1 targetWidth 1 targetHeight]);
+        set(gca, 'YDir', 'reverse');
+        set(gca, 'Position', [0 0 1 1], 'Units', 'normalized');
+
+        % Capture final image
+        frameImg = getframe(gca);
+        renderedImg = frameImg.cdata;
+
+        close(fig);
+    end
+
+
     function middleArrayI = middleIndex(originalArrayLength, numMiddlePoints)
         %This function gets the index to select the middle portion of
         %   the originalArrayLength that corresponds to

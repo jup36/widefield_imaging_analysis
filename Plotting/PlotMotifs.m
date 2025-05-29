@@ -34,7 +34,7 @@ opts.FontWeight = 'bold';
 opts.NameStr = '';
 opts.BregmaX = 1.97; %conversion ratio for finding location to plot bregma
 opts.BregmaY = 2.27; %conversion ratio for finding locatio to plot bremga
-opts.MaskDir = 'Z:\Rodent Data\Wide Field Microscopy\VPA_Mesoscale_Analysis\FigureMask.mat'; %the mask used for figure plotting
+opts.MaskDir = 'Z:\Rodent Data\Wide Field Microscopy\Widefield_Imaging_Analysis\Preprocessing\brainoutline_64.mat'; %the mask used for figure plotting
 opts.caxis = [0 95]; %percentile of maximum intensity
 opts.kernel = [];
 opts.includeflow = 0; %add flow arrows?
@@ -44,16 +44,15 @@ opts.FlowDownsample = 2;
 %Process optional inputs
 opts = ParseOptionalInputs(opts,varargin);
 
-%load mask;
+%load mask; %break mask into l and r hemisphere
 mask = load(opts.MaskDir);
-mask = mask.mask;
-
+mask = mask.mask_64;
 %break mask into l and r hemisphere
 temp = mask;
-temp(:,34:end) = 0;
+temp(:,32:end) = 0;
 hemi_mask{1} = temp; 
 temp = mask;
-temp(:,1:34) = 0;
+temp(:,1:32) = 0;
 hemi_mask{2} = temp; 
 
 for cur_F = 1:size(data,2)
