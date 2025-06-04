@@ -25,7 +25,8 @@ end
 match_header = regexp(filePath, 'm\d{1,4}_\d{6}', 'match');
 header = match_header{1};
 
-fileBeh = GrabFiles_sort_trials('tbytDat_parseGng', 0, {fullfile(filePath, 'Matfiles')});
+fileBeh = GrabFiles_sort_trials(['tbytDat_parseGng' ...
+    ''], 0, {fullfile(filePath, 'Matfiles')});
 if isempty(fileBeh{1})
     fileBeh = GrabFiles_sort_trials('tbytDat.mat', 1, {filePath});
 end
