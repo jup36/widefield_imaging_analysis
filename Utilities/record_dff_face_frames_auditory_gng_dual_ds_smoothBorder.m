@@ -155,8 +155,8 @@ for t = trials
     fprintf('Trial #%d is completed.\n', t);
 end
 
-save(fullfile(fileBehG{1}), 'tbytDatG', '-append') % to save tbytDat(t).faceCamTrelFrames
-save(fullfile(fileBehR{1}), 'tbytDatR', '-append') % to save tbytDat(t).faceCamTrelFrames
+%save(fullfile(fileBehG{1}), 'tbytDatG', '-append') % to save tbytDat(t).faceCamTrelFrames (rather than saving herre run: 'frameTimes_for_dffFaceVideos.m'
+%save(fullfile(fileBehR{1}), 'tbytDatR', '-append') % to save tbytDat(t).faceCamTrelFrames (rather than saving herre run: 'frameTimes_for_dffFaceVideos.m'
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     function renderedImg = renderDffFrame(dffFrame, hemiMaskC, targetSize, colorAxis)
