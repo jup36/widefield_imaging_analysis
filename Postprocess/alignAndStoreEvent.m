@@ -1,23 +1,27 @@
-function rez = alignAndStoreEvent(dffC,regions,rez, ...
-                                  eventField,eventTime,frT,window, ...
-                                  trialIdx,varargin)
-% Align each region’s trace to a behavioural event and store it.
-if ~isfield(rez,eventField)
-    rez.(eventField) = struct();
-end
+function rez = alignAndStoreEvent(dffL, dffR, regions, rez, eventField, eventTime, frT, window, trialIdx, varargin)
 
-for k = 1:numel(regions)
-    regionName = regions{k};
-
-    [alignedSig,alignedT] = alignToEvent(dffC{k},eventTime,frT,window);
-
-    if ~isempty(varargin)                % e.g. postStim chunks
-        jj = varargin{1};
-        rez.(eventField).(regionName){trialIdx,1}{jj,1} = alignedSig;
-        rez.(eventField).(regionName){trialIdx,1}{jj,2} = alignedT;
-    else
-        rez.(eventField).(regionName){trialIdx,1} = alignedSig;
-        rez.(eventField).(regionName){trialIdx,2} = alignedT;
+    if ~isfield(rez, eventField)
+        rez.(eventField) = struct();
     end
-end
+
+    for k = 1:numel(regions)
+        regionL = [regions{k}, 'L'];
+        regionR = [regions{k}, 'R'];
+
+        [alignedL, alignedTL] = alignToEvent(dffL{k}, eventTime, frT, window);
+        [alignedR, alignedTR] = alignToEvent(dffR{k}, eventTime, frT, window);
+
+        if ~isempty(varargin)
+            jj = varargin{1};
+            rez.(eventField).(regionL){trialIdx, 1}{jj, 1} = alignedL;
+            rez.(eventField).(regionL){trialIdx, 1}{jj, 2} = alignedTL;
+            rez.(eventField).(regionR){trialIdx, 1}{jj, 1} = alignedR;
+            rez.(eventField).(regionR){trialIdx, 1}{jj, 2} = alignedTR;
+        else
+            rez.(eventField).(regionL){trialIdx, 1} = alignedL;
+            rez.(eventField).(regionL){trialIdx, 2} = alignedTL;
+            rez.(eventField).(regionR){trialIdx, 1} = alignedR;
+            rez.(eventField).(regionR){trialIdx, 2} = alignedTR;
+        end
+    end
 end

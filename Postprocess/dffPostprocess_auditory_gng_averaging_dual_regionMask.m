@@ -172,3 +172,4 @@ imgStackMasked  = imgStack;
 imgStackMasked(~mask3D) = NaN;
 meanTrace       = squeeze(nanmean(nanmean(imgStackMasked,1),2));
 end
+

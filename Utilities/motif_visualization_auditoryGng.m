@@ -1,11 +1,12 @@
-filePathM = '/Volumes/buschman/Rodent Data/Wide Field Microscopy/ExampleData/Preprocessed/m1045_122424_task_day4-8_img_processed_red_dff_combined_fit_chunk5.mat'; 
-filePathPre = '/Volumes/buschman/Rodent Data/Wide Field Microscopy/ExampleData/Preprocessed/m1045_122424_task_day4-8_img_processed_red_dff_combined.mat'; 
+filePathM = '/Volumes/buschman/Rodent Data/Wide Field Microscopy/ExampleData/Preprocessed/m1045_122424_task_day4-8_img_motif'; 
+fileNameM = 'm1045_122424_task_day4-8_img_processed_red_dff_combined_fit_chunk12.mat'; 
+fileNamePre = 'm1045_122424_task_day4-8_img_processed_red_dff_combined.mat'; 
 savePathM = '/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_122424/task/Figure'; 
 header = extract_date_animalID_header(filePathM); 
-load(filePathM, 'w', 'h', 'nanpxs', 'stats_train'); 
-preS = load(filePathPre, 'data_train', 'data_test');
+load(fullfile(filePathM, fileNameM), 'w', 'h', 'nanpxs', 'stats_train'); 
+preS = load(fullfile(filePathM, fileNamePre), 'data_train', 'data_test');
 
-tokens = regexp(filePathM, 'chunk(\d{1,3})', 'tokens');
+tokens = regexp(fileNameM, 'chunk(\d{1,3})', 'tokens');
 chunkN = str2double(tokens{1}{1});
 
 data_train_chunk = squeeze(preS.data_train(:, :, chunkN)); 
@@ -14,7 +15,8 @@ data_test_chunk = squeeze(preS.data_test(:, :, chunkN));
 %% montage motifs and save each motif
 for i = 1:stats_train.n_motifs
     motifs(:,:,:,i) = conditionDffMat(squeeze(w(:,i,:))',nanpxs);
-    figure; montage(motifs(:,:,:,i), 'Size', [1,10],'DisplayRange', [0 0.5]); colormap turbo; colorbar %change 4th dimension for each motif
+    figure; montage(motifs(:,:,:,i), 'Size', [1,10], 'DisplayRange', [0 0.4]); colormap turbo; colorbar %change 4th dimension for each motif
+    %figure; montage(motifs(:,:,:,i), 'Size', [1,10],'DisplayRange', [0 0.5]); colormap turbo; colorbar %change 4th dimension for each motif
     %print(fullfile(savePathM, [header, sprintf('_montage_motif%d', i)]), '-bestfit', '-dpdf', '-vector')
     fprintf("printed montage of motif#%d\n", i); 
 end

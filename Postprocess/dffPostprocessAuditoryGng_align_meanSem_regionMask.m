@@ -78,3 +78,4 @@ end
 save(outFile,'rezOut');
 fprintf('Saved peri-event stats → %s\n',outFile);
 end
+

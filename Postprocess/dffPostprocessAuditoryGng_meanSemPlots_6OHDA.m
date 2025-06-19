@@ -97,7 +97,7 @@ for r = 1:numel(regions)
 
         % -- save to PDF (vector) -------------------------------
         figName = sprintf('%s_%s_%s_%s_%s',hdr,channel,upper(reg),lbl,'LRhemi6OHDA');
-        print(hFig,fullfile(figSaveDir,figName),'-dpdf','-vector','-bestfit');
+        print(hFig,fullfile(figSaveDir,figName),'-dpdf','-painters','-bestfit');
         fprintf('Saved %s.pdf  (%s | %s)\n',figName,upper(reg),lbl);   % <-- progress update
         close(hFig);   % free memory
     end
