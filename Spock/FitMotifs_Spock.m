@@ -25,24 +25,24 @@ else
 end
 
 if chunk == 1 %make some example figures
-    [w, h, stats_train, stats_test] = FitandValidateMotifs(data_train,data_test,gp,1); % /buschman/Rodent Data/Wide Field Microscopy/fpCNMF
+    [w, h, w_train, h_train, stats_train, stats_test] = FitandValidateMotifs(data_train,data_test,gp,1); % /buschman/Rodent Data/Wide Field Microscopy/fpCNMF
     %get figure names 
     [fig_path, fig_name] = fileparts(save_fn);
     handles = get(groot, 'Children');
     saveCurFigs(handles,'-dpng',[fig_name '_examplefit'],fig_path,0); close all;
     %analyze the residuals of the training
-    handles = AnalyzeResiduals(data_train,tensor_convolve(w,h),nanpxs,[]);
+    handles = AnalyzeResiduals(data_train,tensor_convolve(w_train,h_train),nanpxs,[]);
     saveCurFigs(handles,'-dpng',[fig_name '_Res_train'],fig_path,0); close all;
 
 else %no figures
-    [w, h, stats_train, stats_test] = FitandValidateMotifs(data_train,data_test,gp,0);
+    [w, h, w_train, h_train, stats_train, stats_test] = FitandValidateMotifs(data_train,data_test,gp,0);
 end  
 
 %save off the data in the scratch directory and the nanpxs
 fprintf('\n\tSaving data')
 
 %save off the information in the scratch directory
-save(save_fn,'stats_test','stats_train','w','h','nanpxs','-v7.3')
+save(save_fn,'stats_test','stats_train','w','h','w_train','h_train','nanpxs','-v7.3')
 
 fprintf('\n\tDONE')
 
