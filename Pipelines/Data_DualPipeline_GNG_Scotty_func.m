@@ -67,8 +67,8 @@ for cur_fold = 1:numel(folder_list_raw)
     %% 'Spock_Preprocessing_Pipeline.m' Create spock bash script for each file and run it
     job_id = cell(1,numel(file_list_raw));
     for cur_file = 1:numel(file_list_raw)
-        input_val = {ConvertMacToBucketPath(file_list_raw{cur_file}), ConvertMacToBucketPath(opts_list{1})};
-        script_name = WriteBashScriptMacScotty(sprintf('%d_%d', cur_fold, 1), ...
+        input_val = {ConvertWinToBucketPath(file_list_raw{cur_file}), ConvertWinToBucketPath(opts_list{1})};
+        script_name = WriteBashScriptWinScotty(sprintf('%d_%d', cur_fold, 1), ...
             'Spock_Preprocessing_Pipeline',input_val,{"'%s'","'%s'"});  % bash script to run for preprocessing
 
         % Submit a job
@@ -92,11 +92,11 @@ for cur_fold = 1:numel(folder_list_raw)
     end
 
     %% 'Spock_CombineStacksHemoCorrect1.m' Once each folder is done, combine all the stacks and do hemocorrection
-    [~,header] = fileparts(ConvertMacToBucketPath(folder_list_raw{cur_fold}));
+    [~,header] = fileparts(ConvertWinToBucketPath(folder_list_raw{cur_fold}));
     file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
-    script_name = WriteBashScriptMacScotty(sprintf('%d_%d_combine', cur_fold, cur_file), ...
+    script_name = WriteBashScriptWinScotty(sprintf('%d_%d_combine', cur_fold, cur_file), ...
         'Spock_CombineStacksHemoCorrect1', ...
-        {ConvertMacToBucketPath(folder_list_raw{cur_fold}), ConvertMacToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_dual'}, ...
+        {ConvertWinToBucketPath(folder_list_raw{cur_fold}), ConvertWinToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_dual'}, ...
         {"'%s'","'%s'","'%s'"});
 
     % Run job with dependency

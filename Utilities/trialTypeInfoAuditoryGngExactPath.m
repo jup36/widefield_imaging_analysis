@@ -1,8 +1,6 @@
-function trI = trialTypeInfoAuditoryGng(filePath)
+function trI = trialTypeInfoAuditoryGngExactPath(filePath_tbytDat)
 
-match_header = regexp(filePath, 'm\d{1,4}_\d{6}', 'match');
-header = match_header{1};
-load(fullfile(filePath, 'Matfiles', strcat(header, '_tbytDat_parseGng')), 'tbytDat')
+load(fullfile(filePath_tbytDat), 'tbytDat')
 
 %% more indices for trial-type identification
 trI.waterI = cellfun(@(a) ~isempty(a), {tbytDat.water}); 
