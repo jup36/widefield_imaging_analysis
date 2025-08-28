@@ -26,7 +26,7 @@ if exist('s_conn', 'var')~=1
 end
 
 if iscell(filePathImg)
-    filePathImg = filePathImg{1}; 
+    filePathImg = filePathImg{1};  
 end
 
 %Add paths

@@ -12,5 +12,9 @@ trI.goI = [tbytDat.rewardTrI]'==1;
 trI.nogoI = [tbytDat.punishTrI]'==1; 
 trI.hitI = cellfun(@(a) ~isempty(a), {tbytDat.hitLicks})' & trI.waterI'; 
 trI.missI = cell2mat({tbytDat.rewardTrI})' & cellfun(@(a) isempty(a), {tbytDat.water})'; 
-trI.faI = cellfun(@(a) ~isempty(a), {tbytDat.faLicks})' & trI.airpuffI';
 trI.crI = cell2mat({tbytDat.punishTrI})' & cellfun(@(a) isempty(a), {tbytDat.airpuff})'; 
+if isfield(tbytDat, 'faLicks')
+    trI.faI = cellfun(@(a) ~isempty(a), {tbytDat.faLicks})' & trI.airpuffI';
+else
+    trI.faI = cell2mat({tbytDat.punishTrI})' & trI.airpuffI';
+end
