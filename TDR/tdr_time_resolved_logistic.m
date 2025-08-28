@@ -1,7 +1,45 @@
 function out = tdr_time_resolved_logistic(figSaveDir, tbytDat_hAligned, y, varargin)
-% Time-resolved TDR with ridge logistic regression (Hit vs CR).
-% Returns standardized weights (Wz), original-units weights (W),
-% projections, d', and plotting.
+%TDR_TIME_RESOLVED_LOGISTIC Time-resolved targeted dimensionality reduction via logistic regression.
+%
+% out = TDR_TIME_RESOLVED_LOGISTIC(figSaveDir, tbytDat_hAligned, y, ...) performs
+% a time-resolved targeted dimensionality reduction (TDR) analysis using ridge-penalized
+% logistic regression to discriminate between Go and No-Go trials across time.
+%
+% INPUTS:
+% figSaveDir - Directory to save output figures.
+% tbytDat_hAligned - 2xN cell array: {motif activity (K x Tn), timestamps (1 x Tn)} per trial.
+% y - N x 1 logical or numeric label vector (0 = No-Go, 1 = Go).
+% Name-Value pairs:
+% 'Epoch' - [start end] time range (default: [-0.5 4])
+% 'Win' - Window size in seconds (default: 0.1)
+% 'Step' - Step size in seconds (default: 0.05)
+% 'Lambda' - Ridge regularization strength (default: 1)
+% 'SmoothSigma' - Smoothing sigma (unused) (default: 0)
+% 'DoPlots' - Whether to generate plots (default: true)
+% 'printPlots' - Whether to save plots as PDF (default: true)
+% 'minSD' - Minimum SD for variance flooring (default: 1e-3)
+% 'minPerClass' - Minimum trials per class to fit model (default: 5)
+% 'cdWeightCscale' - Color scale range for weight heatmap (default: [-0.15 0.15])
+% 'dPrimeYlim' - Y-limits for d' plot (default: [0.2 2])
+% 'projCdYlim' - Y-limits for projection plot (default: [-1.5 2])
+%
+% OUTPUT:
+% out - Struct with fields:
+% .Wz - K x nW matrix of standardized weights
+% .W - K x nW matrix of unscaled weights
+% .b - 1 x nW vector of intercepts
+% .proj - N x nW matrix of projection scores per trial
+% .dprime - 1 x nW vector of d' across time
+% .motifRank - nW x K ranking of motifs by absolute weight
+% .params - Struct of parameters
+% .cvDecodingAccuracy - 1 x nW decoding accuracy from 5-fold CV
+%
+% NOTES:
+% - Sign of the weight vectors is aligned such that Go (y==1) trials project more positively.
+% - Global variance stats are used for standardization across time windows.
+% - A global sign alignment (commented) can be optionally re-enabled using the response window.
+%
+% Developed for analyzing time-resolved population coding in mesoscopic imaging data.
 
 % ---- params
 p = inputParser;
@@ -15,9 +53,9 @@ p.addParameter('printPlots', true, @(v)islogical(v)||ismember(v,[0 1]));
 p.addParameter('minSD', 1e-3, @(v)isnumeric(v)&&isscalar(v)&&v>0);     % variance floor for unscaling
 p.addParameter('minPerClass', 5, @(v)isnumeric(v)&&isscalar(v)&&v>=0);
 p.addParameter('cdWeightCscale', [-0.15 0.15], @(v)isnumeric(v)&&numel(v)==2);
-p.addParameter('dPrimeYlim', [0.2 2], @(v)isnumeric(v)&&numel(v)==2); 
-p.addParameter('projCdYlim', [-1.5 2], @(v)isnumeric(v)&&numel(v)==2); 
-
+p.addParameter('dPrimeYlim', [0.2 2], @(v)isnumeric(v)&&numel(v)==2);
+p.addParameter('projCdYlim', [-1.5 2], @(v)isnumeric(v)&&numel(v)==2);
+p.addParameter('visibleFigs', true, @(v)islogical(v)||ismember(v,[0 1]));
 p.parse(varargin{:});
 prm = p.Results;
 
@@ -72,6 +110,7 @@ b  = nan(1, nW);
 proj = nan(N, nW);
 dprime = nan(1, nW);
 motifRank = cell(1, nW);
+cvAcc = nan(1, nW);
 
 for i = 1:nW
     X = Xw{i};
@@ -82,13 +121,35 @@ for i = 1:nW
         continue
     end
 
-    % global z-score
+    % global z-score on valid trials only
     Xz_valid = (X(valid,:) - muG) ./ sdG;
 
-    % ridge logistic
-    mdl = fitclinear(Xz_valid, y(valid), 'Learner','logistic', ...
-        'Regularization','ridge', 'Lambda', prm.Lambda, ...
-        'Solver','lbfgs', 'ClassNames',[0,1]);
+    % ---------- 5-fold CV for decoding accuracy ----------
+    % (use only valid trials for partitioning)
+    y_valid = y(valid);
+    cv = cvpartition(y_valid, 'KFold', 5);
+    acc_fold = nan(cv.NumTestSets, 1);
+
+    for k = 1:cv.NumTestSets
+        trainIdx = training(cv, k);
+        testIdx  = test(cv, k);
+
+        % train on 4 folds
+        mdl_k = fitclinear(Xz_valid(trainIdx,:), y_valid(trainIdx), ...
+            'Learner','logistic', 'Regularization','ridge', ...
+            'Lambda', prm.Lambda, 'Solver','lbfgs', 'ClassNames',[0,1]);
+
+        % test on held-out fold
+        yhat = predict(mdl_k, Xz_valid(testIdx,:));
+        acc_fold(k) = mean(yhat == y_valid(testIdx));
+    end
+
+    cvAcc(i) = mean(acc_fold, 'omitnan');   % store mean CV accuracy for this window
+
+    % ---------- final model on ALL valid trials (for W/Wz/proj) ----------
+    mdl = fitclinear(Xz_valid, y_valid, ...
+        'Learner','logistic', 'Regularization','ridge', ...
+        'Lambda', prm.Lambda, 'Solver','lbfgs', 'ClassNames',[0,1]);
 
     w_z = mdl.Beta;                   % K x 1 (standardized)
     b_i = mdl.Bias;
@@ -105,17 +166,86 @@ for i = 1:nW
     s(valid) = X(valid,:) * w + b_unz;
 
     % align sign (Hit positive)
-    if mean(s(v_hit),'omitnan') < mean(s(v_cr),'omitnan')
+    if mean(s(v_hit), 'omitnan') < mean(s(v_cr), 'omitnan')
         w   = -w;  w_z = -w_z;
         s   = -s;  b_unz = -b_unz;
     end
 
     W(:,i)     = w;
     proj(:,i)  = s;
-    m1 = mean(s(v_hit),'omitnan'); v1 = var(s(v_hit), 'omitnan');
-    m0 = mean(s(v_cr), 'omitnan'); v0 = var(s(v_cr),  'omitnan');
+    b(i)       = b_unz;
+
+    % d' using nan-safe variance
+    m1 = mean(s(v_hit), 'omitnan');
+    m0 = mean(s(v_cr),  'omitnan');
+    v1 = nanvar(s(v_hit));
+    v0 = nanvar(s(v_cr));
     dprime(i)  = (m1 - m0) / sqrt(0.5*(v1+v0) + eps);
-    [~,ord]    = sort(abs(w),'descend'); motifRank{i} = ord(:); % row
+
+    [~,ord] = sort(abs(w),'descend');
+    motifRank{i} = ord(:); % row
+end
+
+% ---- pack output
+out = struct('Wz', Wz, 'W', W, 'b', b, ...
+    'winCtrs', ctr, 'winBounds', winBounds, ...
+    'proj', proj, 'dprime', dprime, ...
+    'motifRank', cell2mat(motifRank), ...
+    'params', prm, 'cvDecodingAccuracy', cvAcc);
+
+% ---- plots
+if prm.DoPlots
+    fb = @(x, y1, y2, a, c) patch([x(:)' fliplr(x(:)')], ...
+        [y1(:)' fliplr(y2(:)')], ...
+        c, 'EdgeColor','none', 'FaceAlpha',a);
+
+    figVis = 'on';
+    if ~prm.visibleFigs, figVis = 'off'; end
+
+    % plot projection score
+    h_proj = figure('Name','Coding projection (Hit vs CR)', 'Visible', figVis); hold on;
+
+    m_hit = mean(out.proj(y==1,:),1,'omitnan'); se_hit = std(out.proj(y==1,:),0,1,'omitnan')/sqrt(sum(y==1));
+    m_cr  = mean(out.proj(y==0,:),1,'omitnan'); se_cr  = std(out.proj(y==0,:),0,1,'omitnan')/sqrt(sum(y==0));
+
+    col_hit = [0.8 0 0];   % red
+    col_cr  = [0 0 0.8];   % blue
+
+    fb(out.winCtrs, m_hit-se_hit, m_hit+se_hit, 0.3, col_hit);
+    plot(out.winCtrs, m_hit, 'Color', col_hit, 'LineWidth', 2);
+
+    fb(out.winCtrs, m_cr -se_cr,  m_cr +se_cr,  0.3, col_cr);
+    plot(out.winCtrs, m_cr, 'Color', col_cr, 'LineWidth', 2);
+
+    xline(0,'k:'); xline(2,'k:'); xlabel('Time (s)'); ylabel('Projection'); ylim(prm.projCdYlim); legend({'Hit \pm SE','Hit','CR \pm SE','CR'});
+
+    % plot dPrime score
+    h_dprime = figure('Name','Time-resolved d''', 'Visible', figVis);
+    plot(out.winCtrs, out.dprime,'LineWidth',2);
+    xline(0,'k:'); xline(2,'k:'); ylim(prm.dPrimeYlim); xlabel('Time (s)'); ylabel('d'''); box on;
+
+    % imagesc Wz
+    h_Wz     = figure('Name','Motif weights heatmap (standardized)', 'Visible', figVis);
+    imagesc(out.winCtrs, 1:K, out.Wz); axis xy;
+    xlabel('Time (s)'); ylabel('Motif #'); colorbar; clim(prm.cdWeightCscale);
+    title('Coding weights (standardized units; + = Hit)'); hold on; ylims = ylim; plot([0 0; 2 2],[ylims; ylims],'k:');
+
+    % Print (Optional)
+    if prm.printPlots
+        if ~exist(figSaveDir, 'dir'); mkdir(figSaveDir); end
+        header = extract_date_animalID_header(figSaveDir);
+        timestampStr = datestr(now, 'mmddyy_HHMMSS');  % Date and time string
+        figSaveName_proj = sprintf('proj_score_CD_%s_%s', header, timestampStr);
+        print(h_proj, fullfile(figSaveDir, figSaveName_proj),'-dpdf','-painters','-bestfit')
+        figSaveName_dprime = sprintf('dPrime_CD_%s_%s', header, timestampStr);
+        print(h_dprime, fullfile(figSaveDir, figSaveName_dprime),'-dpdf','-painters','-bestfit')
+        figSaveName_Wz = sprintf('wZ_CD_%s_%s', header, timestampStr);
+        print(h_Wz, fullfile(figSaveDir, figSaveName_Wz),'-dpdf','-painters','-bestfit')
+    end
+    if ~prm.visibleFigs
+        close(h_proj); close(h_dprime); close(h_Wz);
+    end
+end
 end
 
 % % ===== NEW: Global sign alignment to response-period reference (2–4 s) =====
@@ -127,7 +257,7 @@ end
 %         % Normalize reference safely
 %         nr = norm(refVec(~isnan(refVec)));
 %         refUnit = refVec; refUnit(~isnan(refUnit)) = refVec(~isnan(refVec)) / nr;
-% 
+%
 %         for i = 1:nW
 %             wi = Wz(:,i);
 %             if all(isnan(wi)), continue; end
@@ -147,57 +277,3 @@ end
 %     end
 % end
 % ===========================================================================
-
-% ---- pack output
-out = struct('Wz', Wz, 'W', W, 'b', b, ...
-    'winCtrs', ctr, 'winBounds', winBounds, ...
-    'proj', proj, 'dprime', dprime, ...
-    'motifRank', cell2mat(motifRank), ...
-    'params', prm);
-
-% ---- plots
-if prm.DoPlots
-    fb = @(x, y1, y2, a, c) patch([x(:)' fliplr(x(:)')], ...
-        [y1(:)' fliplr(y2(:)')], ...
-        c, 'EdgeColor','none', 'FaceAlpha',a);
-
-    h_proj = figure('Name','Coding projection (Hit vs CR)'); hold on;
-    m_hit = mean(out.proj(y==1,:),1,'omitnan'); se_hit = std(out.proj(y==1,:),0,1,'omitnan')/sqrt(sum(y==1));
-    m_cr  = mean(out.proj(y==0,:),1,'omitnan'); se_cr  = std(out.proj(y==0,:),0,1,'omitnan')/sqrt(sum(y==0));
-
-    col_hit = [0.8 0 0];   % red
-    col_cr  = [0 0 0.8];   % blue
-
-    % plot projection score 
-    fb(out.winCtrs, m_hit-se_hit, m_hit+se_hit, 0.3, col_hit);
-    plot(out.winCtrs, m_hit, 'Color', col_hit, 'LineWidth', 2);
-
-    fb(out.winCtrs, m_cr -se_cr,  m_cr +se_cr,  0.3, col_cr);
-    plot(out.winCtrs, m_cr, 'Color', col_cr, 'LineWidth', 2);
-
-    xline(0,'k:'); xline(2,'k:'); xlabel('Time (s)'); ylabel('Projection'); ylim(prm.projCdYlim); legend({'Hit \pm SE','Hit','CR \pm SE','CR'});
-
-    % plot dPrime score
-    h_dprime = figure('Name','Time-resolved d'''); plot(out.winCtrs, out.dprime,'LineWidth',2);
-    xline(0,'k:'); xline(2,'k:'); ylim(prm.dPrimeYlim); xlabel('Time (s)'); ylabel('d'''); box on;
-
-    % imagesc Wz
-    h_Wz = figure('Name','Motif weights heatmap (standardized)');
-    imagesc(out.winCtrs, 1:K, out.Wz); axis xy;
-    xlabel('Time (s)'); ylabel('Motif #'); colorbar; clim(prm.cdWeightCscale); 
-    title('Coding weights (standardized units; + = Hit)'); hold on; ylims = ylim; plot([0 0; 2 2],[ylims; ylims],'k:');
-
-    % Print (Optional)
-    if prm.printPlots
-        if ~exist(figSaveDir, 'dir'); mkdir(figSaveDir); end
-        header = extract_date_animalID_header(figSaveDir);
-        timestampStr = datestr(now, 'mmddyy_HHMMSS');  % Date and time string
-        figSaveName_proj = sprintf('proj_score_CD_%s_%s', header, timestampStr);
-        print(h_proj, fullfile(figSaveDir, figSaveName_proj),'-dpdf','-painters','-bestfit')
-        figSaveName_dprime = sprintf('dPrime_CD_%s_%s', header, timestampStr);
-        print(h_dprime, fullfile(figSaveDir, figSaveName_dprime),'-dpdf','-painters','-bestfit')
-        figSaveName_Wz = sprintf('wZ_CD_%s_%s', header, timestampStr);
-        print(h_Wz, fullfile(figSaveDir, figSaveName_Wz),'-dpdf','-painters','-bestfit')
-    end
-end
-end
