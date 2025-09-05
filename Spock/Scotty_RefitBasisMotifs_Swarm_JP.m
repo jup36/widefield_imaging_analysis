@@ -25,10 +25,8 @@ if iscell(filePathImg)
     filePathImg = filePathImg{1}; 
 end
 
-if ispc
-    filePathImg = ConvertMacToWinPath(filePathImg); 
-    basis_dir = ConvertMacToWinPath(basis_dir); 
-end
+filePathImg = compatiblepath(filePathImg); 
+basis_dir = compatiblepath(basis_dir); 
 
 % get params
 gp = loadobj(feval(parameter_class));
@@ -36,7 +34,7 @@ gp = loadobj(feval(parameter_class));
 % get 'file_processed' to access the train and test datasets used for motif fitting
 [~, fileheader] = fileparts(filePathImg); 
 
-file_processed_folder = find_keyword_containing_folder([gp.local_bucket_mac gp.processing_intermediates_mac], fileheader, 'recursive', false); 
+file_processed_folder = find_keyword_containing_folder([gp.local_bucket gp.processing_intermediates], fileheader, 'recursive', false); 
 if numel(file_processed_folder)>1
     warning("More than one processed folder was found!")
 end
@@ -54,8 +52,8 @@ end
 %% Main
 temp = load(file_processed, 'data_test');
 for cur_chunk = 1:size(temp.data_test,3)
-    script_name = WriteBashScriptMacScotty(sprintf('refitchunk%d',cur_chunk),'RefitBasisMotifs_JP',{ConvertMacToBucketPath(file_processed),...
-        ConvertMacToBucketPath(basis_dir),cur_chunk,parameter_class,ConvertMacToBucketPath(save_dir)},...
+    script_name = WriteBashScriptWinScotty(sprintf('refitchunk%d',cur_chunk),'RefitBasisMotifs_JP',{ConvertWinToBucketPath(file_processed),...
+        ConvertWinToBucketPath(basis_dir),cur_chunk,parameter_class,ConvertWinToBucketPath(save_dir)},...
         {"'%s'","'%s'",'%d',"'%s'","'%s'"},...
         'sbatch_time',59,'sbatch_memory',10,...
         'sbatch_path',"/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Spock/");

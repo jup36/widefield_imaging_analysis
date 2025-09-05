@@ -72,7 +72,8 @@ for c = 1:K
 end
 for c = 1:K
     text(centroids_plot(c,1), centroids_plot(c,2), sprintf('c%d', cluster_ids(c)), ...
-        'Color', 'k', 'FontSize', 10, 'HorizontalAlignment', 'center');
+        'Color', 'k', 'FontSize', 10, 'HorizontalAlignment', 'center', ...
+        'FontWeight', 'bold', 'FontAngle', 'italic');
 end
 
 % Print (Optional)
