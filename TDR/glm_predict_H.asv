@@ -1,0 +1,223 @@
+
+%% 0) Grab files
+filePath = compatiblepath('Z:\Rodent Data\dualImaging_parkj\m1045_jRGECO_GRABda\m1045_122424\task'); 
+header = extract_date_animalID_header(filePath); 
+keyword_red = '_refitChunks_red_dff_combined.mat';
+keyword_beh = '_alignedPupilOrofacial.mat'; 
+
+filePath_matfiles = cell2mat(GrabFiles_sort_trials('Matfiles', 0, {filePath})); 
+filePath_H = cell2mat(GrabFiles_sort_trials([header '*' keyword_red], 0, {filePath_matfiles})); 
+filePath_B = cell2mat(GrabFiles_sort_trials([header '*' keyword_beh], 0, {filePath_matfiles})); 
+
+load(filePath_H, 'tbytDat_hAligned');
+load(filePath_B, 'tbytDat'); 
+
+assert(length(tbytDat_hAligned)==length(tbytDat)) % sanity check
+N = length(tbytDat); % the number of trials
+
+%% 1) Stack trials to align H
+Hs = stack_trials_H(tbytDat_hAligned);  % implement as in your decoder
+Ybig = cell2mat(Hs.Yw'); 
+isGoodY = all(isfinite(Ybig), 2);   % drop rows with any NaN/Inf in predictors
+
+%% 2) Build basis for discrete events with pre- and post-event lags
+% from stack_trials_H
+nW = numel(Hs.winCtrs);
+step = Hs.params.Step;   % typically 0.05 s
+[basis.B_evt, basis.lagsEvt] = make_rcos_basis(8, [-1.0 2.0], step, 'nonlin','linear');
+[basis_short.B_evt, basis_short.lagsEvt] = make_rcos_basis(8, [-0.2 0.2], step, 'nonlin','linear');
+
+% optional visualization of basis kernels
+figure;
+imagesc(basis.lagsEvt, 1:size(basis.B_evt,2), basis.B_evt');  % transpose so lags on y-axis
+set(gca, 'YDir', 'normal');    % make lags increase upward
+xlabel('Lag (s)');
+ylabel('Basis index');
+title('Raised Cosine Basis (Event kernels)');
+
+%% 3) Build the design matrix (categorical, task, and behavioral variables)
+trI = trialTypeInfoAuditoryGngTbytDat(tbytDat); 
+% TT = build_trial_masks(trI); 
+% 
+% % build a task struct using the categorical labels
+% task = struct( ...
+%     'trialType', TT.trialType, ...
+%     'isGo',      TT.isGo, ...
+%     'isNoGo',    TT.isNoGo, ...
+%     'isRwd',     TT.isRwd, ...
+%     'isPun',     TT.isPun, ...
+%     'isLicked',  TT.isLicked);
+% [design.tt, design.trialTypeNames, design.trialTypeinfo] = trialtype_to_design(task.trialType, 'ref', 'Hit'); 
+% N = #trials, nW = #time bins
+%X_TT_sparse = sparse(repmat(design.tt, nW, 1));      % (N*nW) × P
+
+%%%%%%%%% discrete variables %%%%%%%%%
+% tone onset (Go trials)
+toneOn_Go_tbyb = events_to_design(tbytDat, Hs.winBounds, 'evtOn', 'absTime', true, 'trialLogic', trI.goI); % trial x nW
+[toneOn_Go_rc, toneOn_Go_rc_names] = convolve_events_with_basis(toneOn_Go_tbyb, basis, 'toneOnGo'); 
+
+% tone offset (Go trials)
+toneOff_Go_tbyb = events_to_design(tbytDat, Hs.winBounds, 'evtOff', 'absTime', true, 'trialLogic', trI.goI); % trial x nW
+[toneOff_Go_rc, toneOff_Go_rc_names] = convolve_events_with_basis(toneOff_Go_tbyb, basis, 'toneOffGo'); 
+
+% tone onset (NoGo trials)
+toneOn_NoGo_tbyb = events_to_design(tbytDat, Hs.winBounds, 'evtOn', 'absTime', true, 'trialLogic', trI.nogoI); % trial x nW
+[toneOn_NoGo_rc, toneOn_NoGo_rc_names] = convolve_events_with_basis(toneOn_NoGo_tbyb, basis, 'toneOnNoGo'); 
+
+% tone offset (NoGo trials)
+toneOff_NoGo_tbyb = events_to_design(tbytDat, Hs.winBounds, 'evtOff', 'absTime', true, 'trialLogic', trI.nogoI); % trial x nW
+[toneOff_NoGo_rc, toneOff_NoGo_rc_names] = convolve_events_with_basis(toneOff_NoGo_tbyb, basis, 'toneOffNoGo'); 
+
+% licks
+periToneLicksVid_tbyb = events_to_design(tbytDat, Hs.winBounds, 'periToneLicksVid', 'absTime', false); % trial x nW
+postToneLicksVid_tbyb = events_to_design(tbytDat, Hs.winBounds, 'postToneLicksVid', 'absTime', false); % trial x nW
+combinedLicksVid_tbyb = periToneLicksVid_tbyb + postToneLicksVid_tbyb; % trial x nW
+[lick_rc, lick_rc_names] = convolve_events_with_basis(combinedLicksVid_tbyb, basis_short, 'lick'); 
+
+% outcome
+water_tbyb = events_to_design(tbytDat, Hs.winBounds, 'water', 'absTime', true); % trial x nW
+[water_rc, water_rc_names] = convolve_events_with_basis(water_tbyb, basis, 'water'); 
+
+airpuff_tbyb = events_to_design(tbytDat, Hs.winBounds, 'airpuff', 'absTime', true); % trial x nW
+[airpuff_rc, airpuff_rc_names] = convolve_events_with_basis(airpuff_tbyb, basis, 'airpuff'); 
+
+%%%%%%%%% continuous variables %%%%%%%%%
+origCTS = -1:0.02:6; 
+
+% pupil diameter
+pupilDiaC = cellfun(@(a) a(1,:), {tbytDat.trPupilDia}, 'UniformOutput', 0); 
+
+X_pupil = timeseries_to_design(pupilDiaC, origCTS, ...
+    'Epoch', [-0.9 5], 'Win', 0.1, 'Step', 0.05, ...
+    'Method','mean', 'Fill', NaN, 'zscore', true, ...
+    'clipExtremes', true, 'zThres', 20);
+X_pupil_flat = X_pupil(:); 
+
+% nose tip movement
+noseTipC = cellfun(@(a) a(1,:), {tbytDat.trNoseTipEnv}, 'UniformOutput', 0); 
+
+X_nosetip = timeseries_to_design(noseTipC, origCTS, ...
+    'Epoch', [-0.9 5], 'Win', 0.1, 'Step', 0.05, ...
+    'Method','mean', 'Fill', NaN, 'zscore', true, ...
+    'clipExtremes', true, 'zThres', 10);
+X_nosetip_flat = X_nosetip(:); 
+
+% whisker movement
+whiskerC = cellfun(@(a) a(1,:), {tbytDat.trWhiskerEnv}, 'UniformOutput', 0); 
+
+X_whisker = timeseries_to_design(whiskerC, origCTS, ...
+    'Epoch', [-0.9 5], 'Win', 0.1, 'Step', 0.05, ...
+    'Method','mean', 'Fill', NaN, 'zscore', true, ...
+    'clipExtremes', true, 'zThres', 10);
+X_whisker_flat = X_whisker(:); 
+
+% locomotion velocity
+locomVelC = cellfun(@(a) a(1,:), {tbytDat.trSpdLocom}, 'UniformOutput', 0); 
+
+X_locomVel = timeseries_to_design(locomVelC, origCTS, ...
+    'Epoch', [-0.9 5], 'Win', 0.1, 'Step', 0.05, ...
+    'Method','mean', 'Fill', NaN, 'zscore', true, ...
+    'clipExtremes', true, 'zThres', 10);
+X_locomVel_flat = X_locomVel(:); 
+
+%%%%%%%%% Concatenate design %%%%%%%%%
+X_names  = [toneOn_Go_rc_names, toneOn_NoGo_rc_names, toneOff_Go_rc_names, toneOff_NoGo_rc_names, ...
+            lick_rc_names, water_rc_names, airpuff_rc_names, ...
+            {'pupil'}, {'nosetip'}, {'whisker'}, {'locomVel'}];
+
+X_design = [toneOn_Go_rc, toneOn_NoGo_rc, toneOff_Go_rc, toneOff_NoGo_rc, ...
+            lick_rc, water_rc, airpuff_rc, ...
+            X_pupil_flat, X_nosetip_flat, X_whisker_flat, X_locomVel_flat];
+
+isGoodX = all(isfinite(X_design), 2);   % drop rows with any NaN/Inf in predictors
+
+X_designVal = X_design(isGoodX & isGoodY, :); 
+YbigVal = Ybig(isGoodX & isGoodY, :); 
+
+assert(size(X_designVal, 1)==size(YbigVal, 1)); 
+
+% Standardize X_design
+muX = mean(X_designVal, 1, 'omitnan');
+sdX = std(X_designVal, 0, 1, 'omitnan');
+sdX(~isfinite(sdX) | sdX < 1e-3) = 1e-3;
+Xz = (X_designVal - muX) ./ sdX;
+
+%% 4) Model fitting
+numMotifs = size(YbigVal, 2);
+lambdaGrid = logspace(-3, 3, 15);
+
+for k = 1:numMotifs
+    yk = YbigVal(:, k);
+    keep = all(isfinite(Xz), 2) & isfinite(yk);
+    [lambdaBest(k), loss] = pick_lambda_ridge(Xz(keep,:), yk(keep), lambdaGrid, 5);
+    beta(:,k) = (Xz(keep,:)'*Xz(keep,:) + lambdaBest(k)*eye(size(Xz,2))) \ (Xz(keep,:)'*yk(keep));
+end
+
+%% 5) Explained Variance Analysis with variance partitioning
+% Suppose you know the (trial) index of each row (bin-major):
+rowTrialIdx = repelem((1:N)', nW);   % N trials, nW bins each (bin-major)
+rowTrialIdx = rowTrialIdx(isGoodX & isGoodY); 
+
+groups = { ...
+  struct('name','GoToneOn',   'cols', find(contains(X_names,'toneOnGo'))), ...
+  struct('name','NoGoToneOn', 'cols', find(contains(X_names,'toneOnNoGo'))), ...
+  struct('name','ToneOffGo',  'cols', find(contains(X_names,'toneOffGo'))), ...
+  struct('name','ToneOffNoGo','cols', find(contains(X_names,'toneOffNoGo'))), ...
+  struct('name','Lick',       'cols', find(contains(X_names,'lick_rc'))), ...
+  struct('name','Water',      'cols', find(contains(X_names,'water_rc'))), ...
+  struct('name','Airpuff',    'cols', find(contains(X_names,'airpuff_rc'))), ...
+  struct('name','Pupil',      'cols', find(strcmp(X_names,'pupil'))), ...
+  struct('name','Nose',       'cols', find(strcmp(X_names,'nosetip'))), ...
+  struct('name','Whisker',    'cols', find(strcmp(X_names,'whisker'))), ...
+  struct('name','Locom',      'cols', find(strcmp(X_names,'locomVel'))) ...
+};
+
+glmEvRez = variance_partition_timeShuffle( ...
+          Xz, YbigVal, lambdaBest, ...
+          'KFold', 5, ...
+          'RowIndex', rowTrialIdx, ...
+          'Groups', groups, ...
+          'ShuffleMode', 'within_trial', ...
+          'RngSeed', 1, ...
+          'Verbose', true);
+
+% Examples:
+% out.cvR2_full           -> K x 1
+% out.cvR2_unique         -> P x K
+% out.cvR2_unique_grp     -> G x K (group-wise ΔR²)
+% out.cvR2_upper_grp      -> G x K
+
+%% 6) Visualize beta weights
+[bw.S, bw.order, bw.hDendro, bw.hSim] = beta_cosine_map(beta); 
+figSaveDir = fullfile(filePath, "Figure"); 
+if exist(figSaveDir, "dir")~=7
+    mkdir(figSaveDir)
+end
+
+timestamp = char(datetime('now', 'Format', 'MMddyy'));  % format: mmddyy_hhmm
+print(bw.hDendro, fullfile(figSaveDir, ['glm_beta_dendrogram', '_', header, '_' timestamp]), '-dpdf', '-painters', '-bestfit')
+print(bw.hSim, fullfile(figSaveDir, ['glm_beta_cosine_similarity', '_', header, '_' timestamp]), '-dpdf', '-painters', '-bestfit')
+
+%% 7) Save Model
+% -------------- pack output --------------
+glmRez = struct();
+glmRez.beta            = beta;          % P x K
+glmRez.X_names         = X_names;       % 1 x P 
+glmRez.lambdaBest      = lambdaBest;    % 1 x K
+glmRez.X_design        = X_design;      % (NxnW) x P 
+glmRez.Ybig            = Ybig;          % (NxnW) x K 
+glmRez.isGoodX         = isGoodX;       % (NxnW) x 1
+glmRez.isGoodY         = isGoodY;       % (NxnW) x 1 
+
+saveDir = fullfile(filePath_matfiles, [header, '_glmRez_', timestamp, '.mat']);  
+save(fullfile(saveDir), 'glmRez', 'glmEvRez', '-v7.3')
+
+
+
+
+
+
+
+
+
+
