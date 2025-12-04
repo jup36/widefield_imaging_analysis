@@ -9,7 +9,7 @@ function montageMotifs(motif_w, nanpxs, varargin)
 %
 %   Displays separate figures if motifs exceed `motifsPerFig`.
 
-motifsPerFig = 14;  % Number of motifs per figure
+motifsPerFig = 10;  % Number of motifs per figure
 
 % Optional: select subset of motifs
 if ~isempty(varargin)

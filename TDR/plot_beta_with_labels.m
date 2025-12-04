@@ -1,7 +1,8 @@
 function h = plot_beta_with_labels(beta, X_names, motifId, varargin)
 % PLOT_BETA_WITH_LABELS  Bar plot of β for one motif with compact x labels.
 %
-% h = plot_beta_with_labels(beta, X_names, motifId, 'sort', 'none'|'absdesc')
+% h = plot_beta_with_labels(beta, X_names, motifId, 'sort', 'none'|'absdesc', ...
+%                           'title', '...', 'predictorI', logical(1xP))
 %
 % INPUTS
 %   beta     : P x K matrix of weights (P predictors, K motifs)
@@ -9,8 +10,9 @@ function h = plot_beta_with_labels(beta, X_names, motifId, varargin)
 %   motifId  : scalar motif index (1..K)
 %
 % NAME–VALUE (optional)
-%   'sort'   : 'none' (default) | 'absdesc'   % sort bars by |β| desc
-%   'title'  : char/str, custom title (default auto)
+%   'sort'      : 'none' (default) | 'absdesc'   % sort bars by |β| desc
+%   'title'     : char/str, custom title (default auto)
+%   'predictorI': [] (default) | logical(1xP) mask of predictors to plot
 %
 % OUTPUT
 %   h.fig, h.ax, h.bars
@@ -19,6 +21,7 @@ function h = plot_beta_with_labels(beta, X_names, motifId, varargin)
 p = inputParser;
 p.addParameter('sort', 'none', @(s) any(strcmpi(s, {'none','absdesc'})));
 p.addParameter('title', '', @(s) ischar(s) || isstring(s));
+p.addParameter('predictorI', [], @(x) isempty(x) || islogical(x));
 p.parse(varargin{:});
 opt = p.Results;
 
@@ -27,27 +30,45 @@ opt = p.Results;
 assert(iscellstr(X_names) && numel(X_names)==P, 'X_names must be 1xP cellstr.');
 assert(isscalar(motifId) && motifId>=1 && motifId<=K, 'motifId out of range.');
 
-b = beta(:, motifId);
+% Validate predictorI when provided
+if ~isempty(opt.predictorI)
+    assert(islogical(opt.predictorI) && numel(opt.predictorI)==P, ...
+        'predictorI must be logical(1xP).');
+    assert(any(opt.predictorI), 'predictorI selects zero predictors.');
+    sel = opt.predictorI(:).';  % row logical mask
+else
+    sel = true(1,P);
+end
+
+bAll  = beta(:, motifId);
+b     = bAll(sel);
 
 % -------- build compact labels --------
-abbr = cellfun(@abbrev_name, X_names, 'uni', 0);
+abbrAll = cellfun(@abbrev_name, X_names, 'uni', 0);
+abbr    = abbrAll(sel);
 
-% optional sorting by |β|
-ord = 1:P;
+% optional sorting by |β| (within the selected subset)
+nSel = numel(b);
+ord  = 1:nSel;
 if strcmpi(opt.sort, 'absdesc')
     [~, ord] = sort(abs(b), 'descend');
 end
 
 % -------- plot --------
-h.fig  = figure('Color','w'); %#ok<*AGROW>
+h.fig = figure('Color','w');
+set(h.fig, 'Units', 'normalized');
+pos = get(h.fig, 'Position');
+pos(3:4) = pos(3:4) * 2;   % double width & height
+set(h.fig, 'Position', pos);
+
 h.ax   = axes('Parent',h.fig); hold(h.ax,'on');
 h.bars = bar(h.ax, b(ord), 'FaceColor',[0.3 0.5 0.9], 'EdgeColor','none');
 
 % zero line
-plot(h.ax, [0.5, P+0.5], [0 0], 'k-', 'LineWidth', 0.8);
+plot(h.ax, [0.5, nSel+0.5], [0 0], 'k-', 'LineWidth', 0.8);
 
 % ticks & labels
-xticks(h.ax, 1:P);
+xticks(h.ax, 1:nSel);
 xticklabels(h.ax, abbr(ord));
 xtickangle(h.ax, 45);
 set(h.ax, 'TickLabelInterpreter','none');
@@ -63,10 +84,9 @@ end
 
 box(h.ax,'off');
 grid(h.ax,'on');
-% Get the current aspect ratio
-r = pbaspect;
 
-% Double the horizontal (x) length
+% Aspect & tight layout
+r = pbaspect;
 pbaspect([3*r(1) r(2) r(3)]);
 axis tight
 

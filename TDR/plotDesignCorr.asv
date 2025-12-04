@@ -96,7 +96,6 @@ imagesc(ax, Rmasked, [-1 1]); axis(ax,'image'); hold(ax,'on');
 colormap(ax, divergingMap()); colorbar;
 set(ax,'XTick',1:P,'XTickLabel',varNames, 'XTickLabelRotation',45);
 set(ax,'YTick',1:P,'YTickLabel',varNames);
-set(ax, 'TickLabelInterpreter', 'none');
 title(ax, ttl, 'Interpreter','none');
 grid(ax,'on'); ax.GridColor = [0.8 0.8 0.8];
 

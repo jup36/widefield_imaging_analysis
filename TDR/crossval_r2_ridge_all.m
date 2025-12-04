@@ -1,4 +1,5 @@
 function [cvR2_full, cvR2_global] = crossval_r2_ridge_all(X, Y, lambdas, cv)
+% Use this 'cv_global_r2_ridge.m' instead for 'trial-aware' cross validation
 % CROSSVAL_R2_RIDGE_ALL  Cross-validated R^2 for a ridge GLM (per motif and global).
 %
 % SYNTAX
@@ -31,52 +32,52 @@ function [cvR2_full, cvR2_global] = crossval_r2_ridge_all(X, Y, lambdas, cv)
 %
 % Junchol Park / Buschman Lab — 2025
 
-    [M, P] = size(X);
-    K = size(Y, 2);
-    F = cv.NumTestSets;
+[M, P] = size(X);
+K = size(Y, 2);
+F = cv.NumTestSets;
 
-    % Allow scalar lambda → broadcast to all motifs
-    if isscalar(lambdas), lambdas = repmat(lambdas, 1, K); end
-    assert(isvector(lambdas) && numel(lambdas)==K, 'lambdas must be 1xK or scalar.');
+% Allow scalar lambda → broadcast to all motifs
+if isscalar(lambdas), lambdas = repmat(lambdas, 1, K); end
+assert(isvector(lambdas) && numel(lambdas)==K, 'lambdas must be 1xK or scalar.');
 
-    I = speye(P);
+I = speye(P);
 
-    % Accumulators across folds
-    SSE_k = zeros(K,1);
-    SST_k = zeros(K,1);
-    SSE_global = 0;
-    SST_global = 0;
+% Accumulators across folds
+SSE_k = zeros(K,1);
+SST_k = zeros(K,1);
+SSE_global = 0;
+SST_global = 0;
 
-    for f = 1:F
-        tr = training(cv, f);
-        te = test(cv, f);
+for f = 1:F
+    tr = training(cv, f);
+    te = test(cv, f);
 
-        Xtr = X(tr,:);  Xte = X(te,:);
-        Ytr = Y(tr,:);  Yte = Y(te,:);
+    Xtr = X(tr,:);  Xte = X(te,:);
+    Ytr = Y(tr,:);  Yte = Y(te,:);
 
-        % Baseline per motif uses TRAINING mean (fold-safe)
-        mu_tr = mean(Ytr, 1);
+    % Baseline per motif uses TRAINING mean (fold-safe)
+    mu_tr = mean(Ytr, 1);
 
-        for k = 1:K
-            lam  = lambdas(k);
-            beta = (Xtr.'*Xtr + lam*I) \ (Xtr.'*Ytr(:,k));   % ridge closed form
-            yhat = Xte * beta;
+    for k = 1:K
+        lam  = lambdas(k);
+        beta = (Xtr.'*Xtr + lam*I) \ (Xtr.'*Ytr(:,k));   % ridge closed form
+        yhat = Xte * beta;
 
-            err  = Yte(:,k) - yhat;
-            SSE  = sum(err.^2);
-            SST  = sum( (Yte(:,k) - mu_tr(k)).^2 );
+        err  = Yte(:,k) - yhat;
+        SSE  = sum(err.^2);
+        SST  = sum( (Yte(:,k) - mu_tr(k)).^2 );
 
-            SSE_k(k) = SSE_k(k) + SSE;
-            SST_k(k) = SST_k(k) + SST;
+        SSE_k(k) = SSE_k(k) + SSE;
+        SST_k(k) = SST_k(k) + SST;
 
-            SSE_global = SSE_global + SSE;
-            SST_global = SST_global + SST;
-        end
+        SSE_global = SSE_global + SSE;
+        SST_global = SST_global + SST;
     end
+end
 
-    % Per-motif CV R^2
-    cvR2_full = 1 - SSE_k ./ max(SST_k, eps);
+% Per-motif CV R^2
+cvR2_full = 1 - SSE_k ./ max(SST_k, eps);
 
-    % Global CV R^2 pooled across motifs
-    cvR2_global = 1 - SSE_global / max(SST_global, eps);
+% Global CV R^2 pooled across motifs
+cvR2_global = 1 - SSE_global / max(SST_global, eps);
 end
