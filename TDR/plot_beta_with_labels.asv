@@ -24,7 +24,7 @@ p.addParameter('title', '', @(s) ischar(s) || isstring(s));
 p.addParameter('predictorI', [], @(x) isempty(x) || islogical(x));
 p.addParameter('figureScaleFactor', 2, @(x) isnumeric(x) && x>0);  
 p.addParameter('figureWidthFactor', 3, @(x) isnumeric(x) && x>0); 
-p.addParameter('visible', 'on', @(s) any(strcmpi(s, {'on', 'off'}))); 
+p.addParameter('visible', 'on', @(s) any(strcmpi(s, {'oin'})))
 p.parse(varargin{:});
 opt = p.Results;
 
@@ -58,7 +58,7 @@ if strcmpi(opt.sort, 'absdesc')
 end
 
 % -------- plot --------
-h.fig = figure('Color','w', 'Visible',opt.visible);
+h.fig = figure('Color','w', 'Visible','on');
 set(h.fig, 'Units', 'normalized');
 pos = get(h.fig, 'Position');
 pos(3:4) = pos(3:4) * opt.figureScaleFactor;   % double width & height

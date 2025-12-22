@@ -3,20 +3,11 @@ function h = linePlots(dat, varargin)
 %
 %   h = linePlots(dat, 'legend', {...}, 'title', '...', 
 %                        'xTickLabel', {...}, 'xLabel', '...', 
-%                        'yLabel', '...', 'yLim', [min max])
+%                        'yLabel', '...', 'yLim', [min max],
+%                        'figVisible', true/false)
 %
 % INPUT
 %   dat : numeric vector or matrix (N x T)
-%         - If vector, it is treated as 1 line.
-%         - If matrix, each row is plotted as a separate line.
-%
-% NAME–VALUE OPTIONS
-%   'legend'     : cell array of line names (default: {})
-%   'title'      : char/string (default: '')
-%   'xTickLabel' : cell array of x tick labels (default: none)
-%   'xLabel'     : char/string (default: '')
-%   'yLabel'     : char/string (default: '')
-%   'yLim'       : numeric 1x2 array [min max] (default: auto)
 %
 % OUTPUT
 %   h.fig, h.ax, h.lines, h.scatter
@@ -29,6 +20,7 @@ p.addParameter('xTickLabel', {}, @(x) iscell(x) || isempty(x));
 p.addParameter('xLabel', '', @(x) ischar(x) || isstring(x));
 p.addParameter('yLabel', '', @(x) ischar(x) || isstring(x));
 p.addParameter('yLim', [], @(x) isempty(x) || (isnumeric(x) && numel(x)==2));
+p.addParameter('figVisible', true, @(x) islogical(x) || isnumeric(x));  % <--- NEW
 p.parse(varargin{:});
 opt = p.Results;
 
@@ -41,7 +33,8 @@ end
 x = 1:nPts;
 
 % -------- Create figure --------
-h.fig = figure('Color','w');
+figVisibility = ternary(opt.figVisible, 'on', 'off');   % small helper below
+h.fig = figure('Color','w', 'Visible', figVisibility);  % <--- UPDATED
 h.ax  = axes('Parent',h.fig); 
 hold(h.ax,'on');
 
@@ -50,11 +43,10 @@ cols = lines(nLines);
 
 % -------- Plot each line --------
 for i = 1:nLines
-    % Plot line
     h.lines(i) = plot(h.ax, x, dat(i,:), '-', ...
         'Color', cols(i,:), 'LineWidth', 1.5, ...
         'DisplayName', getDisplayName(opt.legend, i));
-    % Scatter overlay (no legend entry)
+
     h.scatter(i) = scatter(h.ax, x, dat(i,:), 50, cols(i,:), ...
         'filled', 'MarkerFaceAlpha', 0.8, 'MarkerEdgeColor', 'none', ...
         'HandleVisibility','off');
@@ -63,8 +55,7 @@ end
 % -------- Axes and appearance --------
 grid(h.ax, 'on');
 box(h.ax, 'off');
-set(h.ax, 'TickDir', 'out', 'LineWidth', 1, ...
-    'TickLabelInterpreter','none');
+set(h.ax,'TickDir','out','LineWidth',1,'TickLabelInterpreter','none');
 
 if ~isempty(opt.yLim)
     ylim(h.ax, opt.yLim);
@@ -99,4 +90,9 @@ elseif numel(legendList) >= idx
 else
     name = sprintf('Line %d', idx);
 end
+end
+
+% ===== helper: ternary operator (inline) =====
+function out = ternary(cond, a, b)
+if cond, out = a; else, out = b; end
 end
