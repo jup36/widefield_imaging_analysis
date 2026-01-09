@@ -1,0 +1,103 @@
+% load a 'outHMM' structure
+filePath_base = compatiblepath('/Volumes/buschman/Rodent Data/dualImaging_parkj/m1045_jRGECO_GRABda/m1045_122424/task'); 
+fileKeyword    = '_refitChunksCurated_red_dff_combined.mat';
+filePath_hmm = compatiblepath('/Volumes/buschman/Rodent Data/dualImaging_parkj/collectData/HMM_withinSession/');  
+fileName_hmm = 'm1045_m1045_122424_HMMcv_all_010626_1416.mat'; 
+figSavePath = '/Volumes/buschman/Rodent Data/dualImaging_parkj/collectData/HMM_withinSession/Figure';
+
+load(fullfile(filePath_hmm, fileName_hmm), 'outHMM', 'meta'); 
+
+%% CV curve + elbow by max drop in gain (2nd difference)
+S_list = outHMM.S_list(:);
+meanLL = arrayfun(@(c) c.meanFoldLL, outHMM.cv(:));
+
+if numel(S_list) < 3
+    error('Need at least 3 candidate S values to compute an elbow via 2nd difference.');
+end
+
+d1 = diff(meanLL);        % first difference: gain per added state (length n-1)
+d2 = diff(d1);            % second difference: change in gain (length n-2)
+
+% elbow at the point where gain drops the most (most negative 2nd diff)
+[~, k2] = min(d2);        % index into d2 (1..n-2)
+elbowIdx = k2 + 1;        % maps to S_list index (2..n-1)
+
+elbowS  = S_list(elbowIdx);
+elbowLL = meanLL(elbowIdx);
+
+% Plot
+figure('Color','w'); hold on;
+plot(S_list, meanLL, '-o', 'LineWidth', 1.5, 'MarkerSize', 7);
+
+% red ring around the elbow point
+plot(elbowS, elbowLL, 'o', ...
+    'MarkerSize', 14, ...
+    'LineWidth', 2, ...
+    'MarkerEdgeColor', 'r', ...
+    'MarkerFaceColor', 'none');
+
+xlabel('Number of states S');
+ylabel('Test log-likelihood per bin');
+title(sprintf('HMM CV model selection | %s | N=%d trials | K=%d', ...
+    meta.header, meta.Ntrials, meta.K), 'Interpreter','none');
+grid on; box on;
+
+text(elbowS, elbowLL, sprintf('  elbow S=%d', elbowS), ...
+    'Color','r', 'FontWeight','bold', 'VerticalAlignment','middle');
+
+% (optional) sanity print
+fprintf('Elbow by max drop-in-gain: S=%d\n', elbowS);
+
+%% Visualize the transition matrix
+model = outHMM.models{elbowIdx};
+hFigA = plotHMMTransitionMatrix(model); 
+
+%% Visualize mu (emission means)
+plotHMMEmissionMeans(model, ...
+    'Title', sprintf('%s | Emission means', meta.header));
+
+%% Visualize the transition graph
+figTrans = plotHMMTransitionGraph(model.A, ...
+    'TitlePrefix', meta.header, ...
+    'EdgeLabelDecimals', 3, ...
+    'EdgeLabelFontScale', 5, ...
+    'NodeSizeScale', 3, ...
+    'LineWidthMap', 'power', ...
+    'GammaExp', 0.35, ...      % smaller => more boost to small probs
+    'LineWidthRange', [0.5 8]); % give yourself more dynamic range
+
+figSaveName = sprintf("%s_stateTransitionGraph_%dstates", meta.header, elbowS); 
+print(figTrans.hFig, fullfile(figSavePath, figSaveName), '-dpdf', '-bestfit', '-painters'); 
+
+%% occupancy time series (gamma) 
+% ------------------ build HMM-ready sequences --------------------
+hmmInput = buildHMMseq_fromHsY3(filePath_base, fileKeyword, ...
+    'doPCA', false, ...
+    'nPC', 8, ...
+    'zscoreH', true);
+
+seqC = hmmInput.seqC;   % 1×N cell; each K×T
+trI  = hmmInput.trI;
+time = hmmInput.time;
+
+N = numel(seqC);
+T = size(seqC{1}, 2);
+
+gammaC = cell(1, N);      % each cell: S×T
+logBC  = cell(1, N);      % optional: S×T
+
+for n = 1:N
+    X = seqC{n};          % K×T
+    dec = hmm_decode_trial(X, model);
+
+    gammaC{n} = dec.gamma;
+    logBC{n}  = dec.logB; % optional
+end
+
+% plot trial-averaged gamma occupancy time series per trial type
+hGamma = plotGammaPETH_byTrialType(gammaC, time, trI); 
+
+%% occupancy example image (gamma)
+hFigGamma = imageHmmStateOccupancy(gammaC, 235, time); 
+
+

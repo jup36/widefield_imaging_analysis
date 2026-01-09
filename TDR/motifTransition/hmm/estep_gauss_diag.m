@@ -1,41 +1,61 @@
-function stats = estep_gauss_diag(seqC, model, opt)
-% Accumulate expected sufficient stats over sequences.
+function [ll, gamma, xiSum, logalpha] = estep_gauss_diag(X, model)
+S = model.S;
 
-S = size(model.A,1);
-K = size(model.mu,1);
+logpi = log(model.pi + eps);
+logA  = log(model.A  + eps);
 
-sumGamma1 = zeros(S,1);
-sumXi     = zeros(S,S);
-sumGamma  = zeros(S,1);
-sumX      = zeros(K,S);
-sumXX     = zeros(K,S);
+logB = log_emission_gauss_diag(X, model); % S×T
+T = size(X,2);
 
-LL_total  = 0;
+logalpha = -Inf(S,T);
+c = zeros(1,T);
 
-for n = 1:numel(seqC)
-    X = getSeq(seqC{n}, opt.dataLayout); % [K x T]
-    T = size(X,2);
+logalpha(:,1) = logpi + logB(:,1);
+c(1) = logsumexp(logalpha(:,1), 1);
+logalpha(:,1) = logalpha(:,1) - c(1);
 
-    logB = log_emission_gauss_diag(X, model.mu, model.var); % [S x T]
-
-    [~, ~, gamma, xi, LL] = fb_scaled(logB, model.pi, model.A);
-
-    LL_total = LL_total + LL;
-
-    sumGamma1 = sumGamma1 + gamma(:,1);
-    sumXi     = sumXi     + sum(xi, 3);
-    gsum      = sum(gamma,2);
-    sumGamma  = sumGamma  + gsum;
-
-    sumX  = sumX  + X * gamma';      % KxS
-    sumXX = sumXX + (X.^2) * gamma'; % KxS
+for t = 2:T
+    tmp = logA' + logalpha(:,t-1); % tmp(j,i) = logA(i->j)+logalpha(i)
+    logalpha(:,t) = logB(:,t) + logsumexp(tmp, 2);
+    c(t) = logsumexp(logalpha(:,t), 1);
+    logalpha(:,t) = logalpha(:,t) - c(t);
 end
 
-stats = struct();
-stats.LL = LL_total;
-stats.sumGamma1 = sumGamma1;
-stats.sumXi = sumXi;
-stats.sumGamma = sumGamma;
-stats.sumX = sumX;
-stats.sumXX = sumXX;
+ll = sum(c);
+
+logbeta = -Inf(S,T);
+logbeta(:,T) = 0;
+
+for t = T-1:-1:1
+    tmp = logA + (logB(:,t+1) + logbeta(:,t+1))';
+    logbeta(:,t) = logsumexp(tmp, 2);
+    logbeta(:,t) = logbeta(:,t) - c(t+1);
+end
+
+loggamma = logalpha + logbeta;
+loggamma = loggamma - logsumexp(loggamma, 1);
+gamma = exp(loggamma);
+
+xiSum = zeros(S,S);
+for t = 1:T-1
+    logxi = logalpha(:,t) + logA + (logB(:,t+1) + logbeta(:,t+1))';
+    logxi = logxi - logsumexp(logxi(:), 1);
+    xiSum = xiSum + exp(logxi);
+end
+end
+
+
+
+function y = logsumexp(A, dim)
+if nargin < 2, dim = 1; end
+amax = max(A, [], dim);
+isNegInf = ~isfinite(amax);
+
+Ashift = bsxfun(@minus, A, amax);
+Ashift(~isfinite(Ashift)) = -Inf;
+
+s = sum(exp(Ashift), dim);
+y = amax + log(s + eps);
+
+y(isNegInf) = -Inf;
 end
