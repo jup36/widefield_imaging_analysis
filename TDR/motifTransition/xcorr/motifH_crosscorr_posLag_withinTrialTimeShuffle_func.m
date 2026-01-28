@@ -240,6 +240,7 @@ Xflat = cell(1, K);
 for k = 1:K
     xk = reshape(HsY3(:, k, :), [], 1);
     xk(~isfinite(xk)) = 0;
+    xk = xk - mean(xk, 'omitnan');      % important
     Xflat{k} = xk;
 end
 
