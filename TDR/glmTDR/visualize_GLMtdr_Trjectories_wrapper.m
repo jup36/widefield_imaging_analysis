@@ -1,0 +1,152 @@
+
+fileDir = compatiblepath("Z:\Rodent Data\dualImaging_parkj\collectData"); 
+
+% load 
+load(fullfile(fileDir, "glmTdrRezCollection_020626.mat"), ...
+    "glmRezPathC", "headerC", "TrIdC", "glmA", "prj_glmA")
+
+%% 
+header = "m1045_122424";
+headerI = findHeaderInHeaderC(headerC, "m1045_122424"); 
+
+%zTrj = prj_glmA.global.ZC{headerI(1), headerI(2)}; 
+zTrj = prj_glmA.perMouse.ZC{headerI(1), headerI(2)}; 
+
+trI  = trIdC{headerI(1), headerI(2)}; 
+
+timestamps = glmRezC{headerI(1), headerI(2)}.decBins.time; 
+
+glmTargetCols_goToneOn = glmNameToColumns( ...
+    prj_glmA.global.names, ...
+    {'GoToneOn_1','GoToneOn_2','GoToneOn_3'}); 
+
+glmTargetCols_goToneOff = glmNameToColumns( ...
+    prj_glmA.global.names, ...
+    {'ToneOffGo_1','ToneOffGo_2','ToneOffGo_3'}); 
+
+glmTargetCols_nogoToneOn = glmNameToColumns( ...
+    prj_glmA.global.names, ...
+    {'NoGoToneOn_1','NoGoToneOn_2','NoGoToneOn_3'}); 
+
+glmTargetCols_nogoToneOff = glmNameToColumns( ...
+    prj_glmA.global.names, ...
+    {'ToneOffNoGo_1','ToneOffNoGo_2','ToneOffNoGo_3'}); 
+
+plotTrAvgGlmTrjs(zTrj, {trI.crI trI.hitI}, glmTargetCols_nogoToneOff(1), timestamps, ...
+    'tBounds', [0 5], 'smoothingFactor', 5, ...
+    'FadeToWhite', 1, 'FadeN', 120, ...
+    'LegendC', {'CR','Hit'});
+
+%% GLM Axis (1-d) projection score plotted versus time
+perMouseAcrossSessionPrjScoreTrajectories(prj_glmA, headerC, timestamps, ...
+    'mouseId', "m1045", ...
+    'trIdC', trIdC, ...
+    'trialField', "hitI", ...
+    'projType', "global", ... 
+    'targetName', "GoToneOn_3", ...
+    'dateLaterThan', "121124", ...
+    'dateEarlierThan', [], ...
+    'tBounds', [], ...
+    'lineColor', [0 0 1], ...
+    'smoothingFactor', 5, ...
+    'figSaveDir', compatiblepath('Z:\Rodent Data\dualImaging_parkj\collectFigure\motifTDR\glmTDR'));
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%% HELPER FUNCTION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+function idx = findHeaderInHeaderC(headerC, header)
+%FINDHEADERINHEADERC  Find the [row, col] location of a session header in headerC.
+%
+% idx = findHeaderInHeaderC(headerC, header)
+%
+% INPUTS
+%   headerC : cell array (J x S) of session headers (strings/chars or empty)
+%   header  : char or string, e.g. 'm1045_122424'
+%
+% OUTPUT
+%   idx     : [row, col] of the FIRST match
+%             [] if no match is found
+%
+% NOTES
+%   - Empty cells in headerC are ignored
+%   - Exact string match is used
+%   - If the header appears multiple times, the first occurrence
+%     (row-major order) is returned
+
+% -------------------- sanity --------------------
+if nargin < 2 || isempty(headerC) || isempty(header)
+    idx = [];
+    return;
+end
+
+header = string(header);
+
+% -------------------- flatten + filter empties --------------------
+hdrFlat = headerC(:);
+
+isNonEmpty = ~cellfun(@isempty, hdrFlat);
+if ~any(isNonEmpty)
+    idx = [];
+    return;
+end
+
+hdrFlat = hdrFlat(isNonEmpty);
+hdrFlatS = string(hdrFlat);
+
+% -------------------- exact match --------------------
+hit = find(hdrFlatS == header, 1, 'first');
+
+if isempty(hit)
+    idx = [];
+    return;
+end
+
+% -------------------- map back to [row, col] --------------------
+linIdxAll = find(isNonEmpty);      % linear indices into headerC
+linIdx    = linIdxAll(hit);
+
+[row, col] = ind2sub(size(headerC), linIdx);
+idx = [row, col];
+
+end
+
+function glmTargetCols = glmNameToColumns(glmNameListC, targetNameC)
+%GLMNAMETOCOLUMNS  Map target GLM axis names to column indices.
+%
+% glmTargetCols = glmNameToColumns(glmNameListC, targetNameC)
+%
+% INPUTS
+%   glmNameListC : 1xK (or Kx1) cell array of GLM axis names
+%                  e.g. {'GoToneOn_1','GoToneOn_2',...}
+%   targetNameC  : cell array (or string array) of names to find
+%                  e.g. {'GoToneOn_1','GoToneOn_2','GoToneOn_3'}
+%
+% OUTPUT
+%   glmTargetCols : numeric row vector of column indices into glmNameListC
+%                   (exact-match only; order follows targetNameC)
+%
+% NOTES
+%   - Exact string match only (case-sensitive)
+%   - Missing target names are silently ignored
+%   - Safe with char/string mixtures
+
+% -------------------- sanity --------------------
+if isempty(glmNameListC) || isempty(targetNameC)
+    glmTargetCols = [];
+    return;
+end
+
+% normalize to string row vectors
+glmNames = string(glmNameListC(:))';    % 1 x K
+targets  = string(targetNameC(:))';     % 1 x T
+
+glmTargetCols = [];
+
+% -------------------- exact matching --------------------
+for i = 1:numel(targets)
+    idx = find(glmNames == targets(i), 1, 'first');
+    if ~isempty(idx)
+        glmTargetCols(end+1) = idx; %#ok<AGROW>
+    end
+end
+
+end
