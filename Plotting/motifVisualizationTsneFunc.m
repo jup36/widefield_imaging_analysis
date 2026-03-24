@@ -1,11 +1,11 @@
 function motifVisualizationTsneFunc(Y, cluster_idx, figSaveLogic, saveNameKeyword)
 % Visualize t-SNE embedding of motifs, color-coded by cluster
-% Ws         – [P × nMotifs × L] matrix (temporally aligned motifs)
-% cluster_idx – [nMotifs × 1] vector of cluster assignments
+% Y            – [nMotifs × 2] t-SNE coordinates
+% cluster_idx  – [nMotifs × 1] cluster assignments (NaN allowed; will be dropped)
 
 if nargin < 4
     if nargin == 3
-        saveNameKeyword = ''; 
+        saveNameKeyword = '';
     else
         error("Check the number of inputs!")
     end
@@ -16,75 +16,108 @@ if ispc
     saveFigDir = 'Z:\Rodent Data\dualImaging_parkj\collectFigure\visualCluster';
 end
 
-% Identify clusters
-cluster_ids = unique(cluster_idx);
-K = numel(cluster_ids);
+% -------------------------------------------------------
+% 1) REMOVE NaN cluster assignments
+% -------------------------------------------------------
+validMask = ~isnan(cluster_idx);
 
-% % Compute centroids in t-SNE space
-centroids = zeros(K, 2);
-for c = 1:K
-    centroids(c, :) = median(Y(cluster_idx == cluster_ids(c), :), 1);
+if ~any(validMask)
+    warning('All cluster_idx values are NaN. Nothing to plot.');
+    return;
 end
 
-% Normalize t-SNE coordinates to [0, 1] for consistent color mapping
-Y_norm = normalize(Y, 'range');
+Y = Y(validMask, :);
+cluster_idx = cluster_idx(validMask);
 
-% Identify clusters
+% -------------------------------------------------------
+% 2) Identify clusters
+% -------------------------------------------------------
 cluster_ids = unique(cluster_idx);
 K = numel(cluster_ids);
 
-% Compute centroids (median of t-SNE coordinates)
+% -------------------------------------------------------
+% 3) Normalize t-SNE coordinates for color computation
+% -------------------------------------------------------
+Y_norm = normalize(Y, 'range');
+
+% -------------------------------------------------------
+% 4) Compute centroids in normalized space (for hue)
+% -------------------------------------------------------
 centroids = zeros(K, 2);
 for c = 1:K
     centroids(c, :) = median(Y_norm(cluster_idx == cluster_ids(c), :), 1);
 end
 
-% Convert centroids to polar angle to get hue
+% Convert centroids to polar angle → hue
 x_cent = centroids(:,1) - 0.5;
 y_cent = centroids(:,2) - 0.5;
-angles = atan2(y_cent, x_cent);  % Range: [-pi, pi]
-hues = mod(angles / (2*pi), 1);  % Normalize to [0,1]
+angles = atan2(y_cent, x_cent);      % [-pi, pi]
+hues   = mod(angles / (2*pi), 1);    % [0,1]
 
-% Fixed saturation and brightness
+% Fixed saturation + value
 sat = 0.65;
 val = 0.95;
 
-% Convert HSV to RGB
 hsv_colors = hsv2rgb([hues, repmat(sat, K, 1), repmat(val, K, 1)]);
 
-% Map cluster colors to each motif
-cluster_color_map = containers.Map(num2cell(cluster_ids), num2cell(hsv_colors, 2));
+% -------------------------------------------------------
+% 5) Assign motif colors (no containers.Map needed)
+% -------------------------------------------------------
 motif_colors = zeros(size(cluster_idx,1), 3);
-for j = 1:length(cluster_idx)
-    motif_colors(j, :) = cluster_color_map(cluster_idx(j));
+
+for c = 1:K
+    mask = cluster_idx == cluster_ids(c);
+    motif_colors(mask, :) = repmat(hsv_colors(c,:), sum(mask), 1);
 end
 
-% Plot
+% -------------------------------------------------------
+% 6) Plot
+% -------------------------------------------------------
 figure;
-scatter(Y(:,1), Y(:,2), 10, motif_colors, 'filled'); hold on;
+scatter(Y(:,1), Y(:,2), 10, motif_colors, 'filled');
+hold on;
+
 title(sprintf('t-SNE: %d Clusters', K));
 axis equal off;
 
-% Annotate cluster centers using original Y coordinates (not normalized)
+% -------------------------------------------------------
+% 7) Annotate cluster centers (using original Y)
+% -------------------------------------------------------
 centroids_plot = zeros(K, 2);
 for c = 1:K
     centroids_plot(c, :) = median(Y(cluster_idx == cluster_ids(c), :), 1);
 end
+
 for c = 1:K
-    text(centroids_plot(c,1), centroids_plot(c,2), sprintf('c%d', cluster_ids(c)), ...
-        'Color', 'k', 'FontSize', 10, 'HorizontalAlignment', 'center', ...
-        'FontWeight', 'bold', 'FontAngle', 'italic');
+    text(centroids_plot(c,1), centroids_plot(c,2), ...
+        sprintf('c%d', cluster_ids(c)), ...
+        'Color', 'k', ...
+        'FontSize', 10, ...
+        'HorizontalAlignment', 'center', ...
+        'FontWeight', 'bold', ...
+        'FontAngle', 'italic');
 end
 
-% Print (Optional)
+% -------------------------------------------------------
+% 8) Save (optional)
+% -------------------------------------------------------
 if figSaveLogic
-    timestampStr = datestr(now, 'mmddyy_HHMMSS');  % Date and time string
-    if ~isempty(saveNameKeyword)
-        figSaveName = sprintf('clusterTsne_%s_total%dmotifs_%s', saveNameKeyword, K, timestampStr);
-    else
-        figSaveName = sprintf('clusterTsne_total%dmotifs_%s', K, timestampStr);
+    if ~exist(saveFigDir,'dir')
+        mkdir(saveFigDir);
     end
-    print(fullfile(saveFigDir, figSaveName),'-dpdf','-painters','-bestfit')
+
+    timestampStr = datestr(now, 'mmddyy_HHMMSS');
+
+    if ~isempty(saveNameKeyword)
+        figSaveName = sprintf('clusterTsne_%s_total%dclusters_%s', ...
+            saveNameKeyword, K, timestampStr);
+    else
+        figSaveName = sprintf('clusterTsne_total%dclusters_%s', ...
+            K, timestampStr);
+    end
+
+    print(fullfile(saveFigDir, figSaveName), ...
+        '-dpdf','-painters','-bestfit');
 end
 
 end

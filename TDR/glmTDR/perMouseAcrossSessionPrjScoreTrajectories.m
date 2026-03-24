@@ -7,19 +7,22 @@ function out = perMouseAcrossSessionPrjScoreTrajectories(prj_glmA, headerC, time
 %   prj_glmA    : output of projectGlmRezC_toAnchors(...)
 %   headerC     : [J x S] cell of session headers (e.g., 'm1045_122424' or 'm1613_050725-1')
 %   timestamps  : [1 x T] or [T x 1] time vector aligned to 2nd dim of each Z in prj_glmA.*.ZC
-%
+%x
 % NAME-VALUE (core)
 %   'mouseId'         : "m1045" (required)
 %   'projType'        : "global" (default) | "perMouse"
 %   'targetName'      : "NoGoToneOn_1" (required; must exist in names list)
 %   'trIdC'           : cell [J x S], each entry is struct of trial selectors (optional)
 %   'trialField'      : "crI" (default). If trIdC provided, uses trIdC{j,s}.(trialField) to pick trials.
-%
+%   
 % NAME-VALUE (time + filtering)
 %   'tBounds'         : [] (default) or [tMin tMax]
 %   'smoothingFactor' : 0 (default) or positive integer (e.g. 5)
 %   'dateLaterThan'   : [] (default) or "MMDDYY" (include sessions >= this date)
 %   'dateEarlierThan' : [] (default) or "MMDDYY" (include sessions <= this date)
+%   'day4MarkC'       : [] (default) or cell/string array {mouseId, "MMDDYY"; ...}
+%                      If provided, overrides dateLaterThan by using the mouse-specific Day4 date.
+%                      If mouseId is not found in day4MarkC, throws an error.
 %
 % NAME-VALUE (visual)
 %   'FadeToWhite'     : 0.85 (default). Early sessions are blended toward white by this amount.
@@ -27,13 +30,7 @@ function out = perMouseAcrossSessionPrjScoreTrajectories(prj_glmA, headerC, time
 %   'MakeFigure'      : true (default)
 %
 % NAME-VALUE (save)
-%   'figSaveDir'      : '' (default). If non-empty, saves PDF to this directory using:
-%                       "<mouseId>_<trialField>_<projType>_<targetName>_acrossSession_mmddyy(today).pdf"
-%                       with -dpdf -painters -bestfit.
-%
-% OUTPUT (out)
-%   .mouseId .projType .targetName .targetCol
-%   .headersUsed .sessDtUsed .t .zMeanC .figHandle
+%   'figSaveDir'      : '' (default). If non-empty, saves PDF to this directory.
 
 % -------------------- parse --------------------
 p = inputParser;
@@ -46,13 +43,16 @@ p.addParameter('projType', "global", @(s)ischar(s)||isstring(s));
 p.addParameter('targetName', "", @(s)ischar(s)||isstring(s));
 
 p.addParameter('trIdC', {}, @(c) isempty(c) || iscell(c));
-p.addParameter('trialField', "crI", @(s)ischar(s)||isstring(s));
+p.addParameter('trialField', "", @(s)ischar(s)||isstring(s));
 
 p.addParameter('tBounds', [], @(x) isempty(x) || (isnumeric(x) && numel(x)==2 && x(1)<x(2)));
 p.addParameter('smoothingFactor', 0, @(x) isnumeric(x) && isscalar(x) && x>=0);
 
 p.addParameter('dateLaterThan', [], @(s) isempty(s) || ischar(s) || isstring(s));
 p.addParameter('dateEarlierThan', [], @(s) isempty(s) || ischar(s) || isstring(s));
+
+% NEW
+p.addParameter('day4MarkC', [], @(c) isempty(c) || iscell(c) || isstring(c));
 
 p.addParameter('FadeToWhite', 0.85, @(x) isnumeric(x)&&isscalar(x)&&x>=0&&x<=1);
 p.addParameter('LineWidth', 2, @(x) isnumeric(x)&&isscalar(x)&&x>0);
@@ -74,6 +74,32 @@ assert(strlength(targetName)>0, 'targetName is required (e.g., "NoGoToneOn_1").'
 % -------------------- timestamps sanity --------------------
 tvec = opt.timestamps(:)'; % 1 x T
 
+% -------------------- resolve effective dateLaterThan --------------------
+% If day4MarkC provided, override dateLaterThan by mouse-specific Day4 date.
+effectiveDateLaterThan = opt.dateLaterThan;
+
+if ~isempty(opt.day4MarkC)
+    d4 = opt.day4MarkC;
+    if isstring(d4), d4 = cellstr(d4); end
+
+    % normalize to cell array
+    if iscell(d4)
+        % accept either Nx2 cell OR 1D cellstr pairs - but assume Nx2 as specified
+        assert(size(d4,2) == 2, 'day4MarkC must be an Nx2 cell/string array: {mouseId, "MMDDYY"; ...}.');
+        mouseCol = string(d4(:,1));
+        dateCol  = string(d4(:,2));
+
+        hit = find(mouseCol == mouseId, 1, 'first');
+        if isempty(hit)
+            error('day4MarkC provided, but mouseId=%s was not found in day4MarkC.', mouseId);
+        end
+
+        effectiveDateLaterThan = dateCol(hit);
+    else
+        error('day4MarkC must be empty or an Nx2 cell/string array.');
+    end
+end
+
 % -------------------- pick projection container --------------------
 switch projType
     case "global"
@@ -85,7 +111,7 @@ switch projType
         assert(isfield(prj_glmA,'perMouse') && isstruct(prj_glmA.perMouse) && isfield(prj_glmA.perMouse,'ZC') && isfield(prj_glmA.perMouse,'namesC'), ...
             'prj_glmA.perMouse must contain ZC and namesC.');
         ZC_all   = prj_glmA.perMouse.ZC;     % [J x S] cell, each [N x T x D]
-        nameList = []; %#ok<NASGU>           % resolved after rowIdx
+        nameList = []; %#ok<NASGU>
     otherwise
         error('Unknown projType: %s (use "global" or "perMouse")', projType);
 end
@@ -93,7 +119,6 @@ end
 assert(iscell(ZC_all) && isequal(size(ZC_all), size(headerC)), 'ZC must be a cell array same size as headerC.');
 
 % -------------------- locate row for this mouse --------------------
-% -------------------- robust headerC -> string (handles 0x0 double empties) --------------------
 hdrS = cell(size(headerC));
 for ii = 1:numel(headerC)
     v = headerC{ii};
@@ -102,7 +127,6 @@ for ii = 1:numel(headerC)
     elseif ischar(v)
         hdrS{ii} = v;
     else
-        % covers [] / 0x0 double / structs / anything unexpected
         hdrS{ii} = '';
     end
 end
@@ -112,11 +136,10 @@ rowHasMouse = any(contains(hdrS, mouseId, 'IgnoreCase', true), 2);
 rowIdx = find(rowHasMouse, 1, 'first');
 assert(~isempty(rowIdx), 'Could not find any headerC row containing mouseId=%s.', mouseId);
 
-% perMouse names list (row-specific) — simplified: names are identical across mice/sessions
+% perMouse names list resolution (unchanged)
 if projType == "permouse"
     nameList = [];
 
-    % (1) try row-specific first
     if isfield(prj_glmA,'perMouse') && isfield(prj_glmA.perMouse,'namesC') ...
             && iscell(prj_glmA.perMouse.namesC) ...
             && numel(prj_glmA.perMouse.namesC) >= rowIdx ...
@@ -124,7 +147,6 @@ if projType == "permouse"
         nameList = prj_glmA.perMouse.namesC{rowIdx};
     end
 
-    % (2) fallback: first non-empty entry in perMouse.namesC
     if isempty(nameList) && isfield(prj_glmA,'perMouse') && isfield(prj_glmA.perMouse,'namesC') ...
             && iscell(prj_glmA.perMouse.namesC)
         for ii = 1:numel(prj_glmA.perMouse.namesC)
@@ -135,23 +157,19 @@ if projType == "permouse"
         end
     end
 
-    % (3) final fallback: global names
     if isempty(nameList) && isfield(prj_glmA,'global') && isfield(prj_glmA.global,'names') ...
             && ~isempty(prj_glmA.global.names)
         nameList = prj_glmA.global.names;
     end
 
     assert(~isempty(nameList), 'Could not resolve axis names (perMouse.namesC empty and global.names missing).');
-
-    % normalize to 1xD cellstr
     nameList = cellstr(string(nameList(:)'));
 end
-
 
 % target column
 targetCol = glmNameToColumns(nameList, cellstr(targetName));
 assert(~isempty(targetCol), 'targetName=%s not found in %s names.', targetName, projType);
-targetCol = targetCol(1); % single axis intended here
+targetCol = targetCol(1);
 
 % -------------------- gather sessions for that row --------------------
 hdrRow = headerC(rowIdx, :);
@@ -173,21 +191,22 @@ sessOk = false(1, numel(hdrRow));
 for jj = 1:numel(hdrRow)
     h = hdrRow{jj};
     if isempty(h), continue; end
-    [dtSess, ok] = parse_header_mmddyy_with_suffix(h);
+    [dtSess, ok] = parse_header_mmddyy_ignore_suffix(h);
     if ok
         sessDt(jj) = dtSess;
         sessOk(jj) = true;
     end
 end
 
-% Date filters (apply only where parseable; NaT will naturally fail comparisons when filters are set)
-if ~isempty(opt.dateLaterThan)
-    dt0 = datetime(char(string(opt.dateLaterThan)), 'InputFormat','MMddyy');
+% Later-than filter (effectiveDateLaterThan may be empty)
+if ~isempty(effectiveDateLaterThan)
+    dt0 = datetime(char(string(effectiveDateLaterThan)), 'InputFormat','MMddyy');
     keepLater = (sessDt >= dt0);
 else
     keepLater = true(size(sessDt));
 end
 
+% Earlier-than filter (unchanged)
 if ~isempty(opt.dateEarlierThan)
     dt1 = datetime(char(string(opt.dateEarlierThan)), 'InputFormat','MMddyy');
     keepEarlier = (sessDt <= dt1);
@@ -199,7 +218,7 @@ keepMask = ~cellfun(@isempty, hdrRow) & ~cellfun(@isempty, ZC_row) & keepLater &
 idxKeep = find(keepMask);
 assert(~isempty(idxKeep), 'No sessions survived selection for mouseId=%s.', mouseId);
 
-% Sort by date when all selected sessions are parseable; otherwise stable order
+% Sort by date when parseable
 dtKeep = sessDt(idxKeep);
 if all(~isnat(dtKeep))
     [~, ord] = sort(dtKeep, 'ascend');
@@ -210,7 +229,6 @@ else
 end
 
 % -------------------- time bounds --------------------
-% determine T from first non-empty session
 firstZ = [];
 for jj = idxKeep
     if ~isempty(ZC_row{jj})
@@ -219,10 +237,9 @@ for jj = idxKeep
     end
 end
 assert(~isempty(firstZ), 'Internal: no non-empty Z found after filtering.');
-
 assert(ndims(firstZ)==3, 'Each Z must be N x T x D.');
-T = size(firstZ,2);
 
+T = size(firstZ,2);
 assert(numel(tvec)==T, 'timestamps length (%d) must match Z time dimension T (%d).', numel(tvec), T);
 
 tMask = true(1, T);
@@ -244,9 +261,8 @@ Ns = numel(idxKeep);
 zMeanC = cell(1, Ns);
 headersUsed = cell(1, Ns);
 
-% Session fade: early -> more white; late -> solid
-wVec = linspace(opt.FadeToWhite, 0, Ns); % 1=white-ish, 0=solid base
-baseCol = opt.lineColor;  % user-specified darkest color % final session is dark
+wVec = linspace(opt.FadeToWhite, 0, Ns);
+baseCol = opt.lineColor;
 
 hLeg = gobjects(1, Ns);
 legC = cell(1, Ns);
@@ -254,18 +270,13 @@ legC = cell(1, Ns);
 for k = 1:Ns
     jj = idxKeep(k);
 
-    Z = ZC_row{jj};                 % [N x T x D]
-    hdrSess = string(hdrRow{jj});   % session header string
+    Z = ZC_row{jj};
+    hdrSess = string(hdrRow{jj});
     headersUsed{k} = char(hdrSess);
 
-    assert(ndims(Z)==3, 'ZC{%d,%d} must be N x T x D.', rowIdx, jj);
-    assert(size(Z,2)==T, 'Z time dimension mismatch across sessions.');
-
-    % ---- extract target axis ----
     z1 = squeeze(Z(:, :, targetCol));   % [N x T]
     N  = size(z1,1);
 
-    % ---- pick trials (optional) ----
     if useTrials
         trS = trIdRow{jj};
         if ~isempty(trS) && isstruct(trS) && isfield(trS, char(string(opt.trialField)))
@@ -281,24 +292,19 @@ for k = 1:Ns
         end
     end
 
-    % ---- mean across trials ----
     zMean = mean(z1, 1, 'omitnan');   % 1 x T
     zMean = zMean(tIdx)';             % [Tsel x 1]
 
-    % ---- smooth over time (rows) ----
     if opt.smoothingFactor > 0
         zMean = smooth2a(zMean, opt.smoothingFactor, 0);
     end
     zMeanC{k} = zMean;
 
-    % ---- faded color for this session (early faint -> late solid) ----
     col = blend_to_white(baseCol, wVec(k));
 
     if opt.MakeFigure
         hLeg(k) = plot(tPlot, zMean, 'LineWidth', opt.LineWidth, 'Color', col);
     end
-
-    % ---- clean legend label: just the header (no redundant parentheses) ----
     legC{k} = char(hdrSess);
 end
 
@@ -306,8 +312,6 @@ if opt.MakeFigure
     xlabel('time', 'Interpreter', 'none');
     ylabel(sprintf('proj (%s)', targetName), 'Interpreter', 'none');
     title(sprintf('%s | %s | %s | %s', mouseId, projType, targetName, char(string(opt.trialField))), 'Interpreter','none');
-
-    % legend outside
     legend(hLeg(isgraphics(hLeg)), legC(isgraphics(hLeg)), 'Location','eastoutside', 'Interpreter','none');
     box off;
 end
@@ -353,7 +357,6 @@ end
 %% ===================== HELPERS (keep at end) =====================
 
 function cols = glmNameToColumns(glmNameListC, targetNameC)
-%GLMNAMETOCOLUMNS  Exact name match from glmNameListC to targetNameC.
 glmNameS = string(glmNameListC(:));
 targS    = string(targetNameC(:));
 cols = [];
@@ -365,23 +368,18 @@ for i = 1:numel(targS)
 end
 end
 
-function [dtSess, ok] = parse_header_mmddyy_with_suffix(header)
-%PARSE_HEADER_MMDDYY_WITH_SUFFIX  Supports "m####_MMDDYY" and "m####_MMDDYY-1".
+function [dtSess, ok] = parse_header_mmddyy_ignore_suffix(header)
+%PARSE_HEADER_MMDDYY_IGNORE_SUFFIX
+% Supports "m####_MMDDYY" and "m####_MMDDYY-1", but ignores the "-1" part.
 h = char(string(header));
-tok = regexp(h, '_(\d{6})(?:-(\d+))?$', 'tokens', 'once');
+tok = regexp(h, '_(\d{6})(?:-\d+)?$', 'tokens', 'once'); % ignore suffix
 if isempty(tok)
     dtSess = NaT; ok = false; return;
 end
-mmddyy = tok{1};
-suffix = 0;
-if numel(tok) >= 2 && ~isempty(tok{2})
-    suffix = str2double(tok{2});
-    if ~isfinite(suffix) || suffix < 0, suffix = 0; end
-end
 
+mmddyy = tok{1};
 try
-    dtBase = datetime(mmddyy, 'InputFormat','MMddyy');
-    dtSess = dtBase + seconds(suffix); % enforce ordering within-day
+    dtSess = datetime(mmddyy, 'InputFormat','MMddyy');
     ok = true;
 catch
     dtSess = NaT; ok = false;
@@ -389,7 +387,6 @@ end
 end
 
 function colOut = blend_to_white(colIn, w)
-%BLEND_TO_WHITE  Return (1-w)*colIn + w*[1 1 1], clamped to [0,1]
 colIn = colIn(:)';
 if numel(colIn) ~= 3, colIn = [0 0 0]; end
 w = max(min(w,1),0);
@@ -398,7 +395,6 @@ colOut = max(min(colOut,1),0);
 end
 
 function fn = sanitize_filename(fn)
-%SANITIZE_FILENAME  Remove characters that break Windows paths.
 fn = char(fn);
 bad = '<>:"/\|?*';
 for k = 1:numel(bad)

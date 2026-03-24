@@ -1,41 +1,44 @@
 function prj = projectGlmRezC_toAnchors(glmA, headerC, glmRezC, varargin)
-%PROJECTGLMREZC_TOANCHORS  Project each session's motif activity onto per-mouse + global anchor axes.
+%PROJECTGLMREZC_TOANCHORS  Project each session's motif activity onto:
+%  (1) global expert anchor axes
+%  (2) per-mouse expert anchor axes
+%  (3) per-session axes (each session projected to its OWN orthonormalized A)
 %
 % prj = projectGlmRezC_toAnchors(glmA, headerC, glmRezC, 'Name', value, ...)
 %
 % INPUTS
-%   glmA    : anchor struct produced by collectPerMouseAndGlobalGlmPrjAxes (your current schema)
-%             - global axes live at:  glmA.global.axes.A / glmA.global.axes.names
-%             - per-mouse axes live at: glmA.perMouse.axesByMouse{m}.A / .names
-%   headerC : (J x S) cell array of session headers (e.g. 'm1045_122424')
-%   glmRezC : (J x S) cell array of glmRez structs (same size as headerC)
+%   glmA    : anchor struct from collectPerMouseAndGlobalGlmPrjAxes
+%   headerC : (J x S) cell array of session headers
+%   glmRezC : (J x S) cell array of glmRez structs (same size)
 %
 % NAME-VALUE
 %   'ProjectWhichY' : "Yz" (default) | "Ybig"
-%   'Eps'           : numeric (default 1e-10)
-%   'Verbose'       : true/false (default true)
+%   'Eps'           : 1e-10 (default)
+%   'Verbose'       : true (default)
 %
 % OUTPUT (prj struct)
 %   .global
-%       .A, .names         : global anchor axes + names (copied from glmA.global.axes)
-%       .ZC                : (J x S) cell; each = [N x nW x nAxis] projected trajectories
-%       .okMat             : (J x S) logical; projection success
+%       .A, .names         : global axes + names
+%       .ZC                : (J x S) cell; [N x nW x nAxis]
+%       .okMat             : logical (J x S)
 %   .perMouse
-%       .ZC                : (J x S) cell; each = [N x nW x nAxis_mouse] using that mouse's anchor
-%       .namesC            : (J x S) cell; each = axis names used for that session (typically same within mouse)
-%       .okMat             : (J x S) logical
-%       .mouseIdMat        : (J x S) cellstr mouseId inferred from header
-%   .meta
-%       .headerC           : copy of headerC
-%       .ProjectWhichY     : option used
+%       .ZC                : (J x S) cell; [N x nW x nAxis_mouse]
+%       .namesC            : (J x S) cell; names used
+%       .okMat             : logical (J x S)
+%       .mouseIdMat        : (J x S) cellstr inferred mouseId
+%   .perSession
+%       .ZC                : (J x S) cell; [N x nW x nAxis_session]
+%       .namesC            : (J x S) cell; per-session names (matched to A rows)
+%       .ArawC             : (J x S) cell; per-session Araw_ord (optional storage)
+%       .okMat             : logical (J x S)
 %
-% IMPORTANT STACKING ASSUMPTION (matches your pipeline)
-%   glmRez.Yz is TIME-MAJOR in rows:
+% STACKING ASSUMPTION
+%   glmRez.Yz (and Ybig) are TIME-MAJOR in rows:
 %     [time bin 1: trials 1..N], [time bin 2: trials 1..N], ..., [time bin nW]
-%   Reshape back to trial x time x feature with:
+%   Invert to trial x time x axis using:
 %     Z = reshape(Zrows, [N, nW, nAxis]);
 %
-% Junchol Park lab-style: deterministic + robust + explicit.
+% JC lab-style: robust + explicit.
 
 % -------------------- parse --------------------
 p = inputParser;
@@ -53,19 +56,20 @@ opt = p.Results;
 [J,S] = size(headerC);
 
 % -------------------- validate global axes schema --------------------
-assert(isfield(glmA,'global') && isstruct(glmA.global) && ...
-       isfield(glmA.global,'axes') && isstruct(glmA.global.axes) && ...
-       isfield(glmA.global.axes,'A') && isfield(glmA.global.axes,'names'), ...
-       'glmA.global.axes.A / glmA.global.axes.names not found. Did you run global pooling?');
+hasGlobal = isfield(glmA,'global') && isstruct(glmA.global) && ...
+            isfield(glmA.global,'axes') && isstruct(glmA.global.axes) && ...
+            isfield(glmA.global.axes,'A') && isfield(glmA.global.axes,'names') && ...
+            ~isempty(glmA.global.axes.A);
 
-A_global = glmA.global.axes.A;
-names_global = glmA.global.axes.names;
-
-assert(isnumeric(A_global) && ndims(A_global)==2, 'glmA.global.axes.A must be 2D numeric.');
-assert(iscell(names_global) || isstring(names_global), 'glmA.global.axes.names must be cellstr or string array.');
-names_global = cellstr(string(names_global));
-
-nAxisG = size(A_global,1);
+if hasGlobal
+    A_global = glmA.global.axes.A;
+    names_global = cellstr(string(glmA.global.axes.names));
+    nAxisG = size(A_global,1);
+else
+    A_global = [];
+    names_global = {};
+    nAxisG = 0;
+end
 
 % -------------------- allocate outputs --------------------
 prj = struct();
@@ -77,10 +81,16 @@ prj.global.ZC    = cell(J,S);
 prj.global.okMat = false(J,S);
 
 prj.perMouse = struct();
-prj.perMouse.ZC        = cell(J,S);
-prj.perMouse.namesC    = cell(J,S);
-prj.perMouse.okMat     = false(J,S);
-prj.perMouse.mouseIdMat= cell(J,S);
+prj.perMouse.ZC         = cell(J,S);
+prj.perMouse.namesC     = cell(J,S);
+prj.perMouse.okMat      = false(J,S);
+prj.perMouse.mouseIdMat = cell(J,S);
+
+prj.perSession = struct();
+prj.perSession.ZC     = cell(J,S);
+prj.perSession.namesC = cell(J,S);
+prj.perSession.ArawC  = cell(J,S);   % optional, useful for debugging
+prj.perSession.okMat  = false(J,S);
 
 prj.meta = struct();
 prj.meta.headerC = headerC;
@@ -89,6 +99,7 @@ prj.meta.ProjectWhichY = char(string(opt.ProjectWhichY));
 % -------------------- main loop --------------------
 nOKg = 0;
 nOKm = 0;
+nOKs = 0;
 
 for j = 1:J
     for s = 1:S
@@ -119,57 +130,77 @@ for j = 1:J
         end
 
         % ---------------- GLOBAL projection ----------------
-        if size(A_global,2) ~= K
-            if opt.Verbose
-                warning('projectGlmRezC_toAnchors:GlobalKMismatch', ...
-                    '[%s] Global axes K=%d but session Y has K=%d. Skipping global projection.', char(string(hdr)), size(A_global,2), K);
-            end
-        else
-            Zg = project_time_major(Yproj, A_global, N, nW, opt.Eps);
-            if ~isempty(Zg)
-                prj.global.ZC{j,s}  = Zg;   % [N x nW x nAxisG]
-                prj.global.okMat(j,s)= true;
-                nOKg = nOKg + 1;
+        if hasGlobal
+            if size(A_global,2) ~= K
+                if opt.Verbose
+                    warning('projectGlmRezC_toAnchors:GlobalKMismatch', ...
+                        '[%s] Global axes K=%d but session Y has K=%d. Skipping global projection.', ...
+                        char(string(hdr)), size(A_global,2), K);
+                end
+            else
+                Zg = project_time_major(Yproj, A_global, N, nW, opt.Eps);
+                if ~isempty(Zg)
+                    prj.global.ZC{j,s}   = Zg;    % [N x nW x nAxisG]
+                    prj.global.okMat(j,s)= true;
+                    nOKg = nOKg + 1;
+                end
             end
         end
 
         % ---------------- PER-MOUSE projection ----------------
         [Apm, namesPm, okPm] = fetch_perMouse_anchor_axes(glmA, mouseId);
-        if ~okPm
-            continue;
-        end
-
-        if size(Apm,2) ~= K
-            if opt.Verbose
-                warning('projectGlmRezC_toAnchors:PerMouseKMismatch', ...
-                    '[%s] Mouse=%s axes K=%d but session Y has K=%d. Skipping per-mouse projection.', ...
-                    char(string(hdr)), mouseId, size(Apm,2), K);
+        if okPm
+            if size(Apm,2) ~= K
+                if opt.Verbose
+                    warning('projectGlmRezC_toAnchors:PerMouseKMismatch', ...
+                        '[%s] Mouse=%s axes K=%d but session Y has K=%d. Skipping per-mouse projection.', ...
+                        char(string(hdr)), mouseId, size(Apm,2), K);
+                end
+            else
+                Zm = project_time_major(Yproj, Apm, N, nW, opt.Eps);
+                if ~isempty(Zm)
+                    prj.perMouse.ZC{j,s}     = Zm;
+                    prj.perMouse.namesC{j,s} = namesPm;
+                    prj.perMouse.okMat(j,s)  = true;
+                    nOKm = nOKm + 1;
+                end
             end
-            continue;
         end
 
-        Zm = project_time_major(Yproj, Apm, N, nW, opt.Eps);
-        if ~isempty(Zm)
-            prj.perMouse.ZC{j,s}     = Zm;      % [N x nW x nAxisMouse]
-            prj.perMouse.namesC{j,s} = namesPm; % names used for this session
-            prj.perMouse.okMat(j,s)  = true;
-            nOKm = nOKm + 1;
+        % ---------------- PER-SESSION projection (NEW) ----------------
+        [Asess, namesSess, ArawSess, okSess] = fetch_perSession_axes(glmA, j, s);
+        if okSess
+            if size(Asess,2) ~= K
+                if opt.Verbose
+                    warning('projectGlmRezC_toAnchors:PerSessionKMismatch', ...
+                        '[%s] Per-session axes K=%d but session Y has K=%d. Skipping per-session projection.', ...
+                        char(string(hdr)), size(Asess,2), K);
+                end
+            else
+                Zs = project_time_major(Yproj, Asess, N, nW, opt.Eps);
+                if ~isempty(Zs)
+                    prj.perSession.ZC{j,s}     = Zs;
+                    prj.perSession.namesC{j,s} = namesSess;
+                    prj.perSession.ArawC{j,s}  = ArawSess;
+                    prj.perSession.okMat(j,s)  = true;
+                    nOKs = nOKs + 1;
+                end
+            end
         end
 
     end
 end
 
 if opt.Verbose
-    fprintf('[projectGlmRezC_toAnchors] Global OK: %d | PerMouse OK: %d | Global axes=%d\n', ...
-        nOKg, nOKm, nAxisG);
+    fprintf('[projectGlmRezC_toAnchors] Global OK: %d | PerMouse OK: %d | PerSession OK: %d | Global axes=%d\n', ...
+        nOKg, nOKm, nOKs, nAxisG);
 end
 
 end
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%% HELPERS (END OF FILE) %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ============================== HELPERS ==============================
 
 function mouseId = infer_mouse_id_from_header(hdr)
-% Infer m#### or m##### from header string. Returns '' if not found.
 hdrS = char(string(hdr));
 tok = regexp(hdrS, '(m\d{3,5})', 'tokens', 'once');
 if isempty(tok)
@@ -180,7 +211,6 @@ end
 end
 
 function [Yproj, nW, N, K] = get_project_target_Y(glmRez, whichY)
-% Get Yproj (M x K) from glmRez and return (nW, N, K).
 assert(isfield(glmRez,'decBins') && isfield(glmRez.decBins,'time') && ~isempty(glmRez.decBins.time), ...
     'glmRez.decBins.time missing; cannot infer nW.');
 nW = numel(glmRez.decBins.time);
@@ -212,32 +242,17 @@ if isempty(Yproj) || isempty(A)
     return;
 end
 
-% normalize A rows defensively (should already be normalized, but be safe)
+% normalize A rows defensively
 nr = vecnorm(A,2,2);
 nr(nr < epsVal) = 1;
 A2 = A ./ nr;
 
 Zrows = Yproj * A2';  % [M x nAxis]
-M = size(Yproj,1);
-
-if size(Zrows,1) ~= M
-    Z = [];
-    return;
-end
-
 nAxis = size(A2,1);
-Z = reshape(Zrows, [N, nW, nAxis]);  % TIME-MAJOR invert
+Z = reshape(Zrows, [N, nW, nAxis]);
 end
 
 function [A, names, ok] = fetch_perMouse_anchor_axes(glmA, mouseId)
-%FETCH_PERMOUSE_ANCHOR_AXES  Return per-mouse anchor axes for a mouseId.
-%
-% Expected schema (your current glmA):
-%   glmA.perMouse.mouseIds    : cellstr (nMouse x 1)
-%   glmA.perMouse.axesByMouse : cell (nMouse x 1), each cell is a struct:
-%                               .A      [nAxis x K]
-%                               .names  {1 x nAxis}
-
 A = [];
 names = {};
 ok = false;
@@ -247,11 +262,7 @@ if ~isfield(glmA,'perMouse') || ~isstruct(glmA.perMouse)
 end
 pm = glmA.perMouse;
 
-if ~isfield(pm,'mouseIds') || ~isfield(pm,'axesByMouse')
-    return;
-end
-
-if isempty(mouseId)
+if ~isfield(pm,'mouseIds') || ~isfield(pm,'axesByMouse') || isempty(mouseId)
     return;
 end
 
@@ -268,5 +279,55 @@ end
 
 A = ax.A;
 names = cellstr(string(ax.names));
+ok = true;
+end
+
+function [A, names, Araw, ok] = fetch_perSession_axes(glmA, j, s)
+% Fetch per-session orthonormalized axes A for session (j,s)
+A = [];
+names = {};
+Araw = [];
+ok = false;
+
+if ~isfield(glmA,'allSessions') || ~isstruct(glmA.allSessions) || ...
+   ~isfield(glmA.allSessions,'perSessionMat')
+    return;
+end
+
+perMat = glmA.allSessions.perSessionMat;
+if ~iscell(perMat) || j<1 || s<1 || j>size(perMat,1) || s>size(perMat,2)
+    return;
+end
+
+sess = perMat{j,s};
+if isempty(sess) || ~isstruct(sess)
+    return;
+end
+
+% prefer orthonormalized A if present; otherwise fall back to Araw_ord
+if isfield(sess,'A') && ~isempty(sess.A)
+    A = sess.A;
+    if isfield(sess,'names') && ~isempty(sess.names)
+        names = cellstr(string(sess.names));
+    elseif isfield(sess,'names_ord') && isfield(sess,'keepAfterGS') && ~isempty(sess.keepAfterGS)
+        names = cellstr(string(sess.names_ord(sess.keepAfterGS)));
+    elseif isfield(sess,'names_ord')
+        names = cellstr(string(sess.names_ord));
+    end
+else
+    if isfield(sess,'Araw_ord') && ~isempty(sess.Araw_ord)
+        A = sess.Araw_ord;
+        if isfield(sess,'names_ord') && ~isempty(sess.names_ord)
+            names = cellstr(string(sess.names_ord));
+        end
+    else
+        return;
+    end
+end
+
+if isfield(sess,'Araw_ord') && ~isempty(sess.Araw_ord)
+    Araw = sess.Araw_ord;
+end
+
 ok = true;
 end

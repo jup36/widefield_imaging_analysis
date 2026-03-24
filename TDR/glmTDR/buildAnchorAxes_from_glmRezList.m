@@ -1,52 +1,107 @@
 function axesOut = buildAnchorAxes_from_glmRezList(glmRezList, varargin)
-%BUILDANCHORAXES_FROM_GLMREZLIST  Build a single shared ("anchor") GLM-TDR axis set from many glmRez.
+%BUILDANCHORAXES_FROM_GLMREZLIST  Build pooled ("anchor") GLM-TDR axes from many glmRez,
+%and ALSO store per-session axes including optional per-session GS.
 %
 % axesOut = buildAnchorAxes_from_glmRezList(glmRezList, 'Name', value, ...)
 %
-% Aggregation rule (per axis name):
-%   - build per-session axes (NO per-session GS)
-%   - sign-align across sessions
-%   - mean + renormalize -> pooled axis
-%   - finally order + optional GS
+% Strategy:
+%   1) For each session: run targetedDimRed_from_glmRez(gr, OrthMode="none") to obtain Araw_ord, names_ord.
+%   2) Optionally GS-orthonormalize per-session Araw_ord -> session(i).A (PerSessionGS).
+%   3) Pool across sessions per axis-name:
+%        - gather that axis vector from each session (Araw_ord row)
+%        - normalize, sign-align to first available
+%        - average, renormalize, sign-fix
+%   4) Order pooled axes by PriorityNames (group rank) then pcIdx.
+%   5) Optionally GS on pooled Araw_ord -> axesOut.A (OrthMode).
+%
+% OUTPUT (axesOut)
+%   .Araw_rows      : pooled, unordered [nAxis x K]
+%   .names_raw      : pooled, unordered names
+%   .Araw_ord       : pooled, ordered pre-GS
+%   .names_ord      : pooled, ordered names pre-GS
+%   .axisMeta_ord   : pooled, ordered meta
+%   .A              : pooled final axes after optional GS
+%   .names          : pooled final names after optional GS keep
+%   .axisMeta_final : pooled final meta after optional GS keep
+%   .keepAfterGS    : pooled keep mask after GS
+%
+%   .session(i)     : per-session package (only successful sessions)
+%     .header
+%     .tdr               (raw tdr output)
+%     .Araw_ord
+%     .names_ord
+%     .axisMeta_ord
+%     .A                 (per-session GS result if PerSessionGS=true else ==Araw_ord)
+%     .names             (names after per-session keep mask)
+%     .keepAfterGS
+%
+%   .tdrBySession   : cell(S,1) (includes failures as [])
+%   .sessionKeep    : logical(S,1)
+%   .headers        : headers for successful sessions (maps to .session)
+%
+% Drop-in: self-contained helper functions included at end.
 
 % -------------------- parse --------------------
 p = inputParser;
 p.addRequired('glmRezList', @(c) iscell(c) && ~isempty(c));
 
-p.addParameter('OrthMode',"GS",@(s)ischar(s)||isstring(s));
-p.addParameter('SignFix',"maxabs",@(s)ischar(s)||isstring(s));
-p.addParameter('Eps',1e-10,@(x)isscalar(x)&&x>0);
+p.addParameter('headers', {}, @(c) isempty(c) || iscell(c) || isstring(c));
+
+% pooled-axis options
+p.addParameter('OrthMode', "GS",   @(s)ischar(s)||isstring(s));   % pooled GS only
+p.addParameter('SignFix',  "maxabs",@(s)ischar(s)||isstring(s));
+p.addParameter('Eps',      1e-10,  @(x)isnumeric(x)&&isscalar(x)&&x>0);
 p.addParameter('MultiDimGroups', {'GoToneOn','NoGoToneOn','ToneOffGo','ToneOffNoGo'}, @(c)iscell(c)||isstring(c));
 p.addParameter('MultiDimK', 3, @(x)isnumeric(x)&&isscalar(x)&&x>=1);
 p.addParameter('PriorityNames', {'GoToneOn','NoGoToneOn','ToneOffGo','ToneOffNoGo','Lick'}, @(c)iscell(c)||isstring(c));
 p.addParameter('Verbose', true, @(x)islogical(x)&&isscalar(x));
 
+% per-session GS option
+p.addParameter('PerSessionGS', true, @(x)islogical(x)&&isscalar(x));
+
 p.parse(glmRezList, varargin{:});
 opt = p.Results;
+
+opt.MultiDimGroups = cellstr(string(opt.MultiDimGroups));
+opt.PriorityNames  = cellstr(string(opt.PriorityNames));
 
 glmRezList = glmRezList(:);
 S = numel(glmRezList);
 
-% -------------------- run per-session TDR --------------------
+% -------------------- headers normalize --------------------
+hdrList = opt.headers;
+if isstring(hdrList), hdrList = cellstr(hdrList); end
+if isempty(hdrList)
+    hdrList = cell(S,1);
+else
+    hdrList = hdrList(:);
+    if numel(hdrList) ~= S
+        error('buildAnchorAxes_from_glmRezList:BadHeaders', ...
+            'headers must match glmRezList length (%d).', S);
+    end
+end
+
+% -------------------- run per-session TDR (NO per-session GS inside) --------------------
 tdrBySession = cell(S,1);
 sessionKeep  = false(S,1);
 
 for s = 1:S
     gr = glmRezList{s};
     if isempty(gr) || ~isstruct(gr)
+        tdrBySession{s} = [];
         continue;
     end
 
     try
-        % IMPORTANT: no GS per session; GS happens after pooling
         tdrBySession{s} = targetedDimRed_from_glmRez(gr, ...
-            'OrthMode',       "none", ...
+            'OrthMode',       "none", ...   % IMPORTANT: per-session raw ordered axes
             'SignFix',        opt.SignFix, ...
             'Eps',            opt.Eps, ...
-            'ProjectWhichY',  "Yz", ...  % irrelevant for axis extraction
-            'MultiDimGroups', cellstr(string(opt.MultiDimGroups)), ...
+            'ProjectWhichY',  "Yz", ...     % irrelevant for axis extraction
+            'MultiDimGroups', opt.MultiDimGroups, ...
             'MultiDimK',      opt.MultiDimK, ...
-            'PriorityNames',  cellstr(string(opt.PriorityNames)));
+            'PriorityNames',  opt.PriorityNames);
+
         sessionKeep(s) = true;
 
     catch ME
@@ -55,16 +110,52 @@ for s = 1:S
                 'Skipping session %d/%d (targetedDimRed_from_glmRez failed): %s', s, S, ME.message);
         end
         sessionKeep(s) = false;
+        tdrBySession{s} = [];
     end
 end
 
 tdrGood = tdrBySession(sessionKeep);
+hdrGood = hdrList(sessionKeep);
+
 if isempty(tdrGood)
     error('buildAnchorAxes_from_glmRezList:NoValidSessions', ...
         'No glmRez entries produced valid targetedDimRed outputs.');
 end
 
-% -------------------- union of axis names --------------------
+% -------------------- per-session packaging (includes per-session A) --------------------
+sess = repmat(struct( ...
+    'header',       [], ...
+    'tdr',          [], ...
+    'Araw_ord',     [], ...
+    'names_ord',    [], ...
+    'axisMeta_ord', [], ...
+    'A',            [], ...
+    'names',        [], ...
+    'keepAfterGS',  []), numel(tdrGood), 1);
+
+for i = 1:numel(tdrGood)
+    tdr = tdrGood{i};
+
+    sess(i).header       = hdrGood{i};
+    sess(i).tdr          = tdr;
+
+    sess(i).Araw_ord     = tdr.Araw_ord;
+    sess(i).names_ord    = tdr.names_ord;
+    sess(i).axisMeta_ord = tdr.axisMeta_ord;
+
+    if opt.PerSessionGS
+        [A_gs, keep_gs] = gs_orth_rows(tdr.Araw_ord, opt.Eps);
+        sess(i).A           = A_gs;
+        sess(i).keepAfterGS = keep_gs;
+        sess(i).names       = tdr.names_ord(keep_gs);
+    else
+        sess(i).A           = tdr.Araw_ord;
+        sess(i).keepAfterGS = true(1,size(tdr.Araw_ord,1));
+        sess(i).names       = tdr.names_ord;
+    end
+end
+
+% -------------------- union of axis names across sessions --------------------
 namesAll = {};
 for i = 1:numel(tdrGood)
     namesAll = [namesAll, tdrGood{i}.names_ord]; %#ok<AGROW>
@@ -99,12 +190,12 @@ for a = 1:numel(namesAll)
     % sign-align to reference
     vref = Vc{1};
     V = zeros(nAvail, K);
-    for i = 1:nAvail
-        v = Vc{i};
+    for ii = 1:nAvail
+        v = Vc{ii};
         if (v * vref') < 0
             v = -v;
         end
-        V(i,:) = v;
+        V(ii,:) = v;
     end
 
     vbar = mean(V, 1);
@@ -124,7 +215,7 @@ end
 
 % keep valid pooled axes
 keepAxis = all(isfinite(A_pool), 2) & (vecnorm(A_pool,2,2) > opt.Eps);
-A_pool    = A_pool(keepAxis,:);
+A_pool     = A_pool(keepAxis,:);
 names_kept = namesAll(keepAxis);
 meta       = meta(keepAxis);
 
@@ -133,25 +224,22 @@ if isempty(A_pool)
         'No axes survived pooling. Check naming consistency / groups / degeneracy.');
 end
 
-% -------------------- order axes: PriorityNames + pcIdx --------------------
-priorityNames = cellstr(string(opt.PriorityNames));
-rankMap = containers.Map('KeyType','char','ValueType','double');
-for i = 1:numel(priorityNames)
-    rankMap(priorityNames{i}) = i;
-end
-
+% -------------------- order pooled axes: PriorityNames + pcIdx --------------------
 key1 = nan(numel(names_kept),1); % group rank
 key2 = nan(numel(names_kept),1); % pcIdx
 key3 = (1:numel(names_kept))';   % stable tiebreak
 
 for i = 1:numel(names_kept)
     [gName, pcIdx] = parse_axis_name(string(names_kept{i}));
-    if isKey(rankMap, gName)
-        key1(i) = rankMap(gName);
-    else
-        key1(i) = 1e6;
-    end
     key2(i) = pcIdx;
+
+    % robust: if not in PriorityNames -> huge rank
+    hit = find(strcmpi(opt.PriorityNames, gName), 1, 'first');
+    if isempty(hit)
+        key1(i) = 1e6;
+    else
+        key1(i) = hit;
+    end
 end
 
 [~, ord] = sortrows([key1 key2 key3], [1 2 3]);
@@ -164,8 +252,8 @@ meta_ord  = meta(ord);
 if strcmpi(string(opt.OrthMode), "none")
     A = Araw_ord;
     keepAfterGS = true(1, size(Araw_ord,1));
-    namesFinal = names_ord;
-    metaFinal  = meta_ord;
+    namesFinal  = names_ord;
+    metaFinal   = meta_ord;
 else
     [A, keepAfterGS] = gs_orth_rows(Araw_ord, opt.Eps);
     namesFinal = names_ord(keepAfterGS);
@@ -174,30 +262,33 @@ end
 
 % -------------------- pack output --------------------
 axesOut = struct();
-axesOut.Araw_rows    = A_pool;       % pooled, unordered
-axesOut.names_raw    = names_kept;
-axesOut.Araw_ord     = Araw_ord;     % pooled + ordered
-axesOut.names_ord    = names_ord;
-axesOut.axisMeta_ord = meta_ord;
+axesOut.Araw_rows     = A_pool;
+axesOut.names_raw     = names_kept;
 
-axesOut.A              = A;          % final (post-GS)
+axesOut.Araw_ord      = Araw_ord;
+axesOut.names_ord     = names_ord;
+axesOut.axisMeta_ord  = meta_ord;
+
+axesOut.A              = A;
 axesOut.names          = namesFinal;
 axesOut.axisMeta_final = metaFinal;
 axesOut.keepAfterGS    = keepAfterGS;
 
-axesOut.tdrBySession = tdrBySession;
-axesOut.sessionKeep  = sessionKeep;
+axesOut.session        = sess;
+axesOut.headers        = hdrGood;
 
-axesOut.opt = opt;
+axesOut.tdrBySession   = tdrBySession;
+axesOut.sessionKeep    = sessionKeep;
+axesOut.opt            = opt;
 
 if opt.Verbose
-    fprintf('[buildAnchorAxes] pooled axes=%d (kept after GS=%d) from %d/%d sessions\n', ...
-        size(Araw_ord,1), size(A,1), sum(sessionKeep), S);
+    fprintf('[buildAnchorAxes] pooled axes=%d (kept after pooled GS=%d) from %d/%d sessions | per-session stored=%d | per-session GS=%d\n', ...
+        size(Araw_ord,1), size(A,1), sum(sessionKeep), S, numel(sess), opt.PerSessionGS);
 end
 
 end
 
-
+%% ========================== helpers ==========================
 function v = sign_fix_axis(v, mode)
 mode = lower(string(mode));
 switch mode
@@ -225,6 +316,7 @@ end
 end
 
 function [Q, keepIdx] = gs_orth_rows(A, epsVal)
+%GS_ORTH_ROWS  Gram–Schmidt on row vectors; returns orthonormal rows.
 Q = [];
 keepIdx = false(1,size(A,1));
 for i = 1:size(A,1)
