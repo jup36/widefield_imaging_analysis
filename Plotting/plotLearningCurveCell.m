@@ -5,7 +5,7 @@ function h = plotLearningCurveCell(datC, cMat)
     % number of blocks recorded for that day across all animals.
     %
     % Inputs:
-    %   datC - Nx1 cell array where each cell corresponds to one animal.
+    %   datC - Nx2 cell array where each cell corresponds to one animal.
     %          Each animal is a 1xD cell array (D = number of days), where each
     %          cell is a 1xM array of data (M can vary per day and animal).
     %   cMat - Nx3 matrix specifying RGB colors for each animal.
@@ -17,15 +17,15 @@ function h = plotLearningCurveCell(datC, cMat)
     numMice = length(datC);
     
     % Determine the total number of days (use the maximum over animals)
-    D = max(cellfun(@length, datC));
+    D = unique(max(cellfun(@length, datC)));
     
     % For each day, determine the maximum number of blocks across all animals.
     nBlocks = zeros(1, D);
     for d = 1:D
         blocks = [];
         for iMouse = 1:numMice
-            if length(datC{iMouse}) >= d && ~isempty(datC{iMouse}{d})
-                blocks(end+1) = length(datC{iMouse}{d}); %#ok<AGROW>
+            if length(datC{iMouse}) >= d && ~isempty(datC{iMouse, 2}{d})
+                blocks(end+1) = length(datC{iMouse, 2}{d}); %#ok<AGROW>
             end
         end
         if isempty(blocks)
@@ -61,7 +61,10 @@ function h = plotLearningCurveCell(datC, cMat)
     
     % Plot each animal using the global x positions.
     for iMouse = 1:numMice
-        mouseData = datC{iMouse};
+        mouseData = datC{iMouse, 2};
+        mouseHeader = datC{iMouse, 1}; 
+        mouseId = cell2mat(regexp(datC{iMouse,1}{1}, 'm\d{4}', 'match'));
+
         firstHandle = [];  % To capture the first plotted line for legend.
         
         % Loop over days that this animal has data.
@@ -86,7 +89,7 @@ function h = plotLearningCurveCell(datC, cMat)
         end
         % Store handle and legend entry for this animal.
         legendHandles(iMouse) = firstHandle;
-        legendEntries{iMouse} = sprintf('Mouse %d', iMouse);
+        legendEntries{iMouse} = mouseId;
     end
     
     % Set x-axis ticks at the center of each day and label them.

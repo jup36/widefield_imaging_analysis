@@ -3,7 +3,7 @@ function h = plotLearningCurve(dat, cMat)
     % Each animal has one data point per day, and the data points are connected.
     %
     % Inputs:
-    %   dat  - Nx1 cell array, where each cell is a 1xD numeric array 
+    %   dat  - Nx2 cell array, where each cell is a 1xD numeric array 
     %          (one value per day for that animal).
     %   cMat - Nx3 matrix specifying RGB colors for each animal.
     
@@ -14,7 +14,7 @@ function h = plotLearningCurve(dat, cMat)
     numMice = length(dat);
     
     % Determine the total number of days (use the maximum across animals)
-    D = max(cellfun(@length, dat));
+    D = unique(max(cellfun(@length, dat)));
     
     % Create figure and hold on.
     h = figure; hold on;
@@ -26,7 +26,9 @@ function h = plotLearningCurve(dat, cMat)
     
     % Loop through each mouse and plot their data as a continuous line.
     for iMouse = 1:numMice
-        mouseData = dat{iMouse}; % Get data for this mouse
+        mouseData = dat{iMouse, 2}; % Get data for this mouse
+        mouseHeader = dat{iMouse, 1}; 
+        mouseId = cell2mat(regexp(dat{iMouse,1}{1}, 'm\d{4}', 'match'));
         numDays = length(mouseData); % Number of days for this mouse
         xDays = 1:numDays; % X-axis values (Day indices)
         
@@ -38,7 +40,7 @@ function h = plotLearningCurve(dat, cMat)
         
         % Store the first valid plot handle for legend
         legendHandles(iMouse) = hPlot;
-        legendEntries{iMouse} = sprintf('Mouse %d', iMouse);
+        legendEntries{iMouse} = mouseId; % sprintf('Mouse %d', iMouse);
     end
     
     % Set x-axis ticks to match day numbers

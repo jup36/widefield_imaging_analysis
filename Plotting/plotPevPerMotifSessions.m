@@ -16,6 +16,7 @@ p.addParameter('animalID', {}, @(x) iscellstr(x) || (iscell(x) && all(cellfun(@i
 p.addParameter('Jitter', 0.22, @(x)isnumeric(x)&&isscalar(x)&&x>=0);
 p.addParameter('AlphaRange', [.05 .98], @(x)isnumeric(x)&&numel(x)==2);
 p.addParameter('PointSize', 15, @(x)isnumeric(x)&&isscalar(x)&&x>0);
+p.addParameter('yLim', [], @(x) isempty(x) || (isnumeric(x) && numel(x)==2));
 p.parse(varargin{:});
 opt = p.Results;
 
@@ -52,7 +53,7 @@ fig = gcf;
 pos = get(fig, 'Position');
 
 % Double the width (the 3rd element)
-pos(3) = pos(3) * 2;
+pos(3) = pos(3) * 1.5;
 
 % Set the new position
 set(fig, 'Position', pos);
@@ -85,8 +86,12 @@ ylabel('PEV');
 title('Motif-wise Percent Explained Variance (sessions overlaid)');
 xlim([0.5, nMotifs+0.5]);
 
-yl = ylim;
-ylim([min(0,yl(1)), 0.3]);
+if isempty(opt.yLim)
+    yl = ylim;
+    ylim([min(0, yl(1)), 0.3]);
+else
+    ylim(opt.yLim);
+end
 set(gca, 'Layer','top', 'TickDir','out', 'Box','off');
 
 % ---------- legend: create dummy opaque markers

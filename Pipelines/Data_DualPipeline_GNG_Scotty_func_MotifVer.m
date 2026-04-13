@@ -31,6 +31,13 @@ for f = 1:size(fnC, 1)
     fnC{f,2} = ConvertWinToBucketPath(file_list_dff{f*2}); % test dff stack path
 end
 
+%for f = 1:size(fnC, 1)
+%    fnC{f,1} = file_list_dff{f*2-1}; % train dff stack path
+%    fnC{f,2} = file_list_dff{f*2}; % test dff stack path
+%end
+
+
+
 [~, fileheader] = fileparts(filePathImg{1}); 
 filePathImg_dffList = fullfile(filePathImg{1}, [fileheader, '_list', fileKeyword]); 
 save(filePathImg_dffList, 'fnC')

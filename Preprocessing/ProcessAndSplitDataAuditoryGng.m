@@ -19,7 +19,7 @@ function [data_norm, nanpxs, data_train, data_test] = ProcessAndSplitDataAuditor
 %   data_test
 
 load(fnC_fn, 'fnC'); 
-% fnC = cellfun(@(a) ConvertBucketToMacPath(a), fnC, 'un', 0); % to convert the Spock path back to Mac Path
+% fnC = cellfun(@(a) ConvertBucketToWinPath(a), fnC, 'un', 0); % to convert the Spock path back to Mac Path
 
 if ~ispc
     addpath(genpath('/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/'))
@@ -32,7 +32,7 @@ num_chunks = size(fnC, 1); % the number of train/test splits
 assert(size(fnC, 2)==2);   % train and test
 assert(sum(cellfun(@isempty, fnC(:)))==0); 
 
-%% Load dff stacks
+%% Load dff stacks
 for rr = 1:size(fnC, 1)
     for cc = 1:size(fnC, 2)
         temp = load(fnC{rr, cc});
@@ -44,12 +44,13 @@ for rr = 1:size(fnC, 1)
         yC{rr, cc} = size(temp.dff, 2);  
         zC{rr, cc} = size(temp.dff, 3);  
         % condition data and remove nan pxls
+        dataCrs_org{rr, cc} = temp.dff;
         [dataC{rr, cc}, nanpxsC{rr, cc}] = conditionDffMat(temp.dff); % dataC entries are frame-by-pixels(nonNaN)
         % deconvolution filter data (use lucric)
         fprintf('\n\tPerforming a Lucy-Goosey Deconvolution (Lucy-Richardson)\n')
-        for px = 1:size(dataC{rr, cc},2)
-            dataC{rr, cc}(:,px) = lucric(dataC{rr, cc}(:,px), gp.d_gamma, gp.d_smooth, gp.d_kernel);
-        end
+        %for px = 1:size(dataC{rr, cc},2)
+        %    dataC{rr, cc}(:,px) = lucric(dataC{rr, cc}(:,px), gp.d_gamma, gp.d_smooth, gp.d_kernel);
+        %end
         
         clear temp; 
         fprintf(sprintf("Completed loading dff or row#%d and col#%d\n", rr, cc)); 
@@ -71,6 +72,7 @@ dataC = cellfun(@(a) a(1:minFrN, :), dataC, 'UniformOutput', false);
 
 % back to stack orientation and stack
 dataC = cellfun(@(a, b) conditionDffMat(a, b, [], [rowN, colN, minFrN]), dataC, nanpxsC, 'UniformOutput', false); 
+dataC = clipDataC_percentile(dataC, 0.1, 99.9); % Mask extreme values
 data = cat(3, dataC{:}); % stack up all image stacks (e.g., 64 x 64 x N total frames)
 % isequaln(dataC{2, 1}, data(:,:,861:2*860)) % sanity check (this must be true as MATLAB is column-major
 
@@ -89,7 +91,7 @@ switch gp.w_normalization_method
             data_norm(:,px) = (data(:,px))/(prctile(data(:,px),gp.w_norm_val));
         end             
     case 'full' %normalize using the percentile of the maximum         
-        data_norm = data/prctile(data(data>eps),gp.w_norm_val);          
+        data_norm = data/prctile(data(data>eps), gp.w_norm_val);          
     case 'bounded'
         data_norm = (data)/(gp.w_norm_val(2)); %normalize between zero and the upper bound     
     case 'none'
@@ -119,6 +121,7 @@ for i = 1:numel(dataC)
         data_test(:, :, count_testsets) = tempDat; % even chunks
     end
 end
+% dff3d = conditionDffMat(data_train(:, :, 1)', nanpxsC{1, 1}, [], [64 64 860]);
 
 %% save off the data in the scratch directory and the nanpxs
 if ~isempty(save_fn)

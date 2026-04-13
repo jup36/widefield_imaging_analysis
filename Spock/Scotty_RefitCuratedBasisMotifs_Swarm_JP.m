@@ -1,4 +1,4 @@
-function Scotty_RefitBasisMotifs_Swarm_JP(filePathImg, fileKeyword, basis_dir, parameter_class, save_dir)
+function Scotty_RefitCuratedBasisMotifs_Swarm_JP(filePathImg, fileKeyword, basis_dir, parameter_class, save_dir)
 %Camden MacDowell
 % customized by Junchol Park
 

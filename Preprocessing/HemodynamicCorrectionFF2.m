@@ -1,4 +1,4 @@
-function [dff, dff_b, dff_v] = HemodynamicCorrectionFF1(stack, opts)
+function [dff, dff_b, dff_v] = HemodynamicCorrectionFF2(stack, opts)
 %Camden MacDowell 2019
 %Followed allen et al., 2017 neuron and Musall et al., 2019 Nature
 %Neuro subtraction method for hemodynamic correction.
@@ -60,8 +60,18 @@ end
 
 %% pixelwise hemodynamic correction
 stack_v_frStd = squeeze(std(double(stack_v), 0, 3));
-low_std_threshold = 2*1e-3;
+low_std_threshold = 3*1e-3;
 std_mask = stack_v_frStd < low_std_threshold;
+
+% --- Bright mask ---
+mean_v = mean(double(stack_v), 3, 'omitnan');
+prc_threshold = 96.5;  % <-- your request
+brightMask  = mean_v > prctile(mean_v(:), prc_threshold);
+
+% --- Combined artifact mask ---
+artifactMask = std_mask | brightMask;
+
+% overlayMaskOutline(mean(stack_v, 3, 'omitnan'), artifactMask)
 
 [nX,nY,nZ] = size(stack_b);
 [stack_b_flat, bad_col] = conditionDffMat(stack_b); % input dim: pixel x pixel x frames, output dim: frames x pixels(excluding bad ones)
@@ -70,14 +80,14 @@ bad_col_logic = zeros(1, nX*nY);
 bad_col_logic(bad_col) = 1;  
 
 % Flatten saturated mask to match columns
-std_mask_flat = reshape(std_mask, 1, []);
-std_mask_flat = std_mask_flat(~bad_col_logic);  % remove bad cols from mask
+artifactMaskFlat = reshape(artifactMask, 1, []);
+artifactMaskFlat = artifactMaskFlat(~bad_col_logic);  % remove bad cols from mask
 
 stack_v_smoothed = NaN(size(stack_v_flat));
 
 for i = 1:size(stack_v_smoothed, 2)
     temp = stack_v_flat(:, i);
-    if std_mask_flat(i)
+    if artifactMaskFlat(i)
         % Mark this column for later fill
         continue;
     end
@@ -98,7 +108,7 @@ stack_v_smoothed = conditionDffMat(stack_v_smoothed,bad_col,[],[nX,nY,nZ]);
 % Fill pixels with artifacts in dff_v with random non-artifact pixel values
 dff_v_filled = dff_v;
 % Use valid (non-saturated) pixels to sample from
-for z = 1:nZ
+for z = 1:nZ % frames
     dff_v_z = dff_v(:, :, z);
 
     % Peripheral mask from stack_b (original exclusion mask)
@@ -112,7 +122,7 @@ for z = 1:nZ
 
     dff_v_filled(:, :, z) = dff_v_z_filled;
 end
-dff_v_filled = applyImgaussfilt(dff_v_filled); 
+%dff_v_filled = applyImgaussfilt(dff_v_filled); 
 
 %Division correction 
 dff = (dff_b ./ dff_v_filled - 1) * 100;
