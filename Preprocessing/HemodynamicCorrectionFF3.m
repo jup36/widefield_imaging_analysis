@@ -1,4 +1,4 @@
-function [dff, dff_b, dff_v] = HemodynamicCorrectionFF2(stack, opts)
+function [dff, dff_b, dff_v] = HemodynamicCorrectionFF3(stack, opts)
 %Camden MacDowell 2019
 %Followed allen et al., 2017 neuron and Musall et al., 2019 Nature
 %Neuro subtraction method for hemodynamic correction.
@@ -127,14 +127,14 @@ end
 %Division correction 
 dff = (dff_b ./ dff_v_filled - 1) * 100;
 
-% % Spatial Gaussian smoothing of final corrected dF/F
-% if ~isfield(opts, 'spatialSmoothSigma')
-%     opts.spatialSmoothSigma = 1;  % default sigma in pixels
-% end
-% 
-% if opts.spatialSmoothSigma > 0
-%     dff = applyImgaussfilt(dff, 'sigma', opts.spatialSmoothSigma);
-% end
+% Spatial Gaussian smoothing of final corrected dF/F
+if ~isfield(opts, 'spatialSmoothSigma')
+    opts.spatialSmoothSigma = 1;  % default sigma in pixels
+end
+
+if opts.spatialSmoothSigma > 0
+    dff = applyImgaussfilt(dff, 'sigma', opts.spatialSmoothSigma);
+end
 
 end
 

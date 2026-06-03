@@ -1,4 +1,4 @@
-function RefitCuratedBasisMotifs_JP(fn, basis_dir, chunk, parameter_class, save_dir)
+function RefitCuratedStaticBasisMotifs_JP(fn, basis_dir, chunk, parameter_class, save_dir)
 
 %Add paths
 if ispc
@@ -63,7 +63,7 @@ stats_refit.smoothingkernel = gp.smt_kernel;
 residuals = data_train-tensor_convolve(w,H);
 
 %save off
-save([save_dir filesep name 'train.mat'],'w','H','stats_refit','bad_pxl','residuals');
+save([save_dir filesep name '_train_static.mat'],'w','H','stats_refit','bad_pxl','residuals');
 
 [w,H] = fpCNMF(data_test,'non_penalized_iter',...
     gp.non_penalized_iter,'penalized_iter',gp.penalized_iter_refit,...
@@ -76,6 +76,6 @@ stats_refit.smoothingkernel = gp.smt_kernel;
 residuals = data_test-tensor_convolve(w,H);
 
 %save off
-save([save_dir filesep name 'test.mat'],'w','H','stats_refit','bad_pxl','residuals');
+save([save_dir filesep name '_test_static.mat'],'w','H','stats_refit','bad_pxl','residuals');
 
 fprintf('\n\t End of a Successful Run');

@@ -1,4 +1,4 @@
-function Data_DualPipeline_GNG_Scotty_vasc_func(filePathImg, fileKeyword, varargin)
+function Data_DualPipeline_GNG_Scotty_Gauss_func(filePathImg, fileKeyword, varargin)
 %This script runs preprocessing of an ome.tiff image stack.
 % filePathImg must be a folder that contains ome.tiff stack(s).
 
@@ -107,11 +107,11 @@ for cur_fold = 1:numel(folder_list_raw)
         job_id{cur_file} = jobID;
     end
 
-    %% 'Spock_CombineStacksHemoCorrect1.m'
+    %% 'Spock_CombineStacksHemoCorrect3.m'
     [~,header] = fileparts(ConvertWinToBucketPath(folder_list_raw{cur_fold}));
     file_list_preprocessed{cur_fold} = [folder_list_raw{cur_fold} filesep header '_dff_combined.mat'];
     script_name = WriteBashScriptWinScotty(sprintf('%d_%d_combine', cur_fold, cur_file), ...
-        'Spock_CombineStacksHemoCorrect2', ...
+        'Spock_CombineStacksHemoCorrect3', ...
         {ConvertWinToBucketPath(folder_list_raw{cur_fold}), ConvertWinToBucketPath(file_list_preprocessed{cur_fold}), 'general_params_dual'}, ...
         {"'%s'","'%s'","'%s'"});
 

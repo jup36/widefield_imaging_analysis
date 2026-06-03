@@ -81,7 +81,7 @@ for figIdx = 1:nFigures
 
     % Show montage
     figure;
-    montage(allMotifs, 'Size', [motifsThisFig, nFrames], 'DisplayRange', [0 0.3]);
+    montage(allMotifs, 'Size', [motifsThisFig, nFrames], 'DisplayRange', [0 0.7]);
     colormap magma;
     title(sprintf('Motifs %s', compressMotifIDs(motifIDsThisFig)));
 

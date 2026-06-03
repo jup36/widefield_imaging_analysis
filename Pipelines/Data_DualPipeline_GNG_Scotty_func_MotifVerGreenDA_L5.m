@@ -1,4 +1,4 @@
-function Data_DualPipeline_GNG_Scotty_func_MotifVerGreenDA(filePathImg, fileKeyword)
+function Data_DualPipeline_GNG_Scotty_func_MotifVerGreenDA_L5(filePathImg, fileKeyword)
 %This script runs fpCNMF (FitMotifs_SpockSwarm.m, FitMotifs_Spock.m) and data 
 % preprocessing required for fpCNMF (ProcessAndSplitDataAuditoryGng.m)
 % This script has been modified to accommodate the current imaging scheme
@@ -18,11 +18,11 @@ keyFile = fullfile(getenv('USERPROFILE'), '.ssh', 'id_ed25519_scotty_matlab');
 s_conn = ssh2_command_scotty('connect', 'scotty', keyFile);
 
 %load general params (this is for anything after preprocessing)
-parameter_class = 'general_params_dual';
+parameter_class = 'general_params_dual_L5';
 gp = loadobj(feval(parameter_class)); 
 
 % Get a cell array (fnC) that contains filePaths to 'dff_combined' matfiles
-file_list_dff = GrabFiles_subfolders(fileKeyword, filePathImg); % use GrabFiles_sort_trials to sort both files and folders
+file_list_dff = GrabFiles_subfolders(fileKeyword, {filePathImg}); % use GrabFiles_sort_trials to sort both files and folders
 
 fnC = cell(floor(length(file_list_dff)/2), 2); % train (1st col) and test (2nd col) set directories
 
@@ -31,31 +31,32 @@ for f = 1:size(fnC, 1)
     fnC{f,2} = ConvertWinToBucketPath(file_list_dff{f*2}); % test dff stack path
 end
 
-%for f = 1:size(fnC, 1)
-%    fnC{f,1} = file_list_dff{f*2-1}; % train dff stack path
-%    fnC{f,2} = file_list_dff{f*2}; % test dff stack path
-%end
+% for f = 1:size(fnC, 1)
+%     fnC{f,1} = file_list_dff{f*2-1}; % train dff stack path
+%     fnC{f,2} = file_list_dff{f*2}; % test dff stack path
+% end
 
-
-[~, fileheader] = fileparts(filePathImg{1}); 
-filePathImg_dffList = fullfile(filePathImg{1}, [fileheader, '_list', fileKeyword]); 
+[~, fileheader] = fileparts(filePathImg); 
+filePathImg_dffList = fullfile(filePathImg, [fileheader, '_list', fileKeyword]); 
 save(filePathImg_dffList, 'fnC')
 
 %% Deconvolution/normalization and Motif Fitting. Results in cross validated motifs
 % optional restart: selected combined dff files
 % file_list_preprocessed = GrabFiles('501\w*dff_combined.mat');
-file_processed_dir = fullfile(gp.local_bucket, gp.processing_intermediates, [fileheader, '_motif']); 
+folderName = sprintf("%s_motif_lag%d", fileheader, gp.L); 
+file_processed_dir = fullfile(gp.local_bucket, gp.processing_intermediates, folderName); 
 if exist(file_processed_dir, "dir")~=7
     mkdir(file_processed_dir)
 end
-file_processed = fullfile(file_processed_dir, [fileheader '_processed' fileKeyword]); 
+fileName = sprintf("%s_lag%d_processed%s", fileheader, gp.L, fileKeyword);  
+file_processed = fullfile(file_processed_dir, fileName); 
 
 %deconvolve and split the data
 script_name = WriteBashScriptWinScotty(sprintf('%d',1), ...
     'ProcessAndSplitDataAuditoryGngGreenDA', ...
     {ConvertWinToBucketPath(filePathImg_dffList), ...
     ConvertWinToBucketPath(file_processed), ...
-    'general_params_dual'}, ...
+    'general_params_dual_L5'}, ...
     {"'%s'","'%s'","'%s'"}, ...
     'sbatch_time',5,'sbatch_memory',16, ...
     'sbatch_path', "/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Preprocessing/");
@@ -80,12 +81,12 @@ temp_job_id = regexprep(temp_job_id, '[^0-9]', '');   % keep digits only
 
 %Fit motifs and cross-validate (parallellize by chunk)
 nChunks = size(fnC, 1); 
-[swarm_id, swarm_motifs] = FitMotifs_ScottySwarm_chunks(file_processed, temp_job_id, s_conn, 'general_params_dual', nChunks); %  
+[swarm_id, swarm_motifs] = FitMotifs_ScottySwarm_chunks(file_processed, temp_job_id, s_conn, 'general_params_dual_L5', nChunks); %  
 
 % save swarm_id and swarm_motifs
-[~, filePathImg_name] = fileparts(filePathImg{1}); 
+[~, filePathImg_name] = fileparts(filePathImg); 
 saveName = [filePathImg_name, '_', 'motifList', fileKeyword]; 
-save(fullfile(filePathImg{1}, saveName), 'swarm_motifs', 'swarm_id', '-v7.3'); 
+save(fullfile(filePathImg, saveName), 'swarm_motifs', 'swarm_id', '-v7.3'); 
 clearvars s_conn
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

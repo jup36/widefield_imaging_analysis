@@ -31,6 +31,7 @@ end
 [x,y,z] = size(data);   
 [data,nanpxs] = conditionDffMat(data); %nanpxs are the same on each iteration so fine to overwrite
 
+
 %filter data
 switch gp.w_deconvolution
     case 'filter_thresh'
