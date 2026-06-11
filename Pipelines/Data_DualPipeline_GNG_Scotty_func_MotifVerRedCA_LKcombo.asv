@@ -1,0 +1,180 @@
+function Data_DualPipeline_GNG_Scotty_func_MotifVerRedCA_PreprocessOnly(filePathImg, fileKeyword, varargin)
+% Submit one preprocessing job per session.
+%
+% This creates a shared processed file under:
+%
+%   gp.processing_intermediates/LKcombo/headerS/
+%
+% using the naming convention:
+%
+%   <fileheader>_lag<preproc_L>_k<preproc_K>_processed<fileKeyword>
+%
+% Example:
+%   m1044_121824_task_day4-4_img_lag1_k1_processed_red_dff_combined.mat
+
+%% Parse inputs
+p = inputParser;
+
+addRequired(p, 'filePathImg', @(x) ischar(x) || isstring(x));
+addRequired(p, 'fileKeyword', @(x) ischar(x) || isstring(x));
+
+addParameter(p, 'preproc_L', 1, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'preproc_K', 1, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'parameter_class', 'general_params_dual_L10', @(x) ischar(x) || isstring(x));
+addParameter(p, 'sbatch_time', 300, @(x) isnumeric(x) && isscalar(x) && x > 0);
+addParameter(p, 'sbatch_memory', 16, @(x) isnumeric(x) && isscalar(x) && x > 0);
+
+parse(p, filePathImg, fileKeyword, varargin{:});
+
+filePathImg = char(p.Results.filePathImg);
+fileKeyword = char(p.Results.fileKeyword);
+
+preproc_L = p.Results.preproc_L;
+preproc_K = p.Results.preproc_K;
+parameter_class = char(p.Results.parameter_class);
+
+sbatch_time = p.Results.sbatch_time;
+sbatch_memory = p.Results.sbatch_memory;
+
+fprintf('\n============================================================\n');
+fprintf('Preprocess-only submission\n');
+fprintf('filePathImg: %s\n', filePathImg);
+fprintf('fileKeyword: %s\n', fileKeyword);
+fprintf('Preprocessing label: L%d K%d\n', preproc_L, preproc_K);
+fprintf('============================================================\n');
+
+%% Connect to Scotty
+keyFile = fullfile(getenv('USERPROFILE'), '.ssh', 'id_ed25519_scotty_matlab');
+s_conn = ssh2_command_scotty('connect', 'scotty', keyFile);
+
+%% Load base params and create preprocessing parameter class
+gp = loadobj(feval(parameter_class));
+
+gp.L = preproc_L;
+gp.K = preproc_K;
+
+baseParamClass = parameter_class;
+preprocParamClass = sprintf('general_params_dual_L%d_K%d', preproc_L, preproc_K);
+
+write_lk_parameter_class(baseParamClass, preprocParamClass, preproc_L, preproc_K);
+
+parameter_class = preprocParamClass;
+
+fprintf('\nUsing preprocessing parameter class: %s\n', parameter_class);
+
+%% Get DFF file list
+file_list_dff = GrabFiles_subfolders(fileKeyword, {filePathImg});
+
+if isempty(file_list_dff)
+    error('No DFF files found using keyword %s in:\n%s', fileKeyword, filePathImg);
+end
+
+nPairs = floor(numel(file_list_dff) / 2);
+
+if nPairs < 1
+    error('Not enough DFF files found to make train/test pairs. Found %d file(s).\nFolder:\n%s', ...
+        numel(file_list_dff), filePathImg);
+end
+
+if mod(numel(file_list_dff), 2) ~= 0
+    warning(['Odd number of DFF files found (%d). Using maximum possible pairs (%d) ' ...
+             'and ignoring the last unpaired file:\n%s'], ...
+             numel(file_list_dff), nPairs, file_list_dff{end});
+end
+
+fprintf('\nFound %d DFF files. Using %d train/test pairs.\n', ...
+    numel(file_list_dff), nPairs);
+
+fnC = cell(nPairs, 2);
+
+for f = 1:nPairs
+    fnC{f,1} = ConvertWinToBucketPath(file_list_dff{f*2-1});
+    fnC{f,2} = ConvertWinToBucketPath(file_list_dff{f*2});
+end
+
+%% Define session headers
+[~, fileheader] = fileparts(filePathImg);
+headerS = extract_date_animalID_header(filePathImg);
+
+%% Shared preprocessing parent directory
+file_processed_parent_dir = fullfile(gp.local_bucket, gp.processing_intermediates, ...
+    'LKcombo', headerS);
+
+if exist(file_processed_parent_dir, 'dir') ~= 7
+    mkdir(file_processed_parent_dir);
+end
+
+%% Save shared DFF list in parent directory
+filePathImg_dffList = fullfile(file_processed_parent_dir, ...
+    sprintf('%s_list_L%d_K%d%s', fileheader, preproc_L, preproc_K, fileKeyword));
+
+save(filePathImg_dffList, ...
+    'fnC', ...
+    'file_list_dff', ...
+    'preproc_L', ...
+    'preproc_K', ...
+    'parameter_class', ...
+    'filePathImg', ...
+    '-v7.3');
+
+fprintf('\nSaved shared DFF list:\n%s\n', filePathImg_dffList);
+
+%% Define shared processed file
+file_processed = fullfile(file_processed_parent_dir, ...
+    sprintf('%s_lag%d_k%d_processed%s', fileheader, preproc_L, preproc_K, fileKeyword));
+
+fprintf('\nShared processed file will be:\n%s\n', file_processed);
+
+%% Submit preprocessing job
+jobStem = sanitize_for_slurm(sprintf('preproc_%s_L%d_K%d', fileheader, preproc_L, preproc_K));
+
+script_name = WriteBashScriptWinScotty(jobStem, ...
+    'ProcessAndSplitDataAuditoryGng', ...
+    {ConvertWinToBucketPath(filePathImg_dffList), ...
+     ConvertWinToBucketPath(file_processed), ...
+     parameter_class}, ...
+    {"'%s'", "'%s'", "'%s'"}, ...
+    'sbatch_time', sbatch_time, ...
+    'sbatch_memory', sbatch_memory, ...
+    'sbatch_name', jobStem, ...
+    'sbatch_path', "/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Preprocessing/");
+
+remoteCmd = ['cd /jukebox/buschman/Rodent\ Data/Wide\ Field\ Microscopy/Widefield_Imaging_Analysis/Spock/DynamicScripts ; ' ...
+    sprintf('sbatch %s', script_name)];
+
+resp = ssh2_command_scotty(s_conn, remoteCmd);
+disp(resp.command_result{end});
+
+jidLine = resp.command_result(contains(resp.command_result, "Submitted batch job"));
+
+if isempty(jidLine)
+    error('No job ID found in sbatch response!');
+end
+
+preproc_job_id = extractAfter(jidLine, "Submitted batch job ");
+preproc_job_id = regexprep(preproc_job_id, '[^0-9]', '');
+
+fprintf('\nSubmitted preprocessing job ID: %s\n', preproc_job_id);
+
+%% Save preprocessing submission record
+saveName = fullfile(file_processed_parent_dir, ...
+    sprintf('%s_preprocessSubmit_L%d_K%d%s', fileheader, preproc_L, preproc_K, fileKeyword));
+
+save(saveName, ...
+    'preproc_job_id', ...
+    'file_processed', ...
+    'file_processed_parent_dir', ...
+    'filePathImg_dffList', ...
+    'fnC', ...
+    'file_list_dff', ...
+    'parameter_class', ...
+    'preproc_L', ...
+    'preproc_K', ...
+    'filePathImg', ...
+    '-v7.3');
+
+fprintf('\nSaved preprocessing submission record:\n%s\n', saveName);
+
+clearvars s_conn
+
+end
