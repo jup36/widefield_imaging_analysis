@@ -12,6 +12,7 @@ hIntAlignedC = cell(2, numel(tbytDat));
 for t = 1:numel(tbytDat)
     blockId = blockIds(t);
     if blockId <= size(hCell, 2)
+        if isempty(hCell{1, blockId}); continue; end
         framesOfTrial = cell2mat(trainPulseEdgeC{t});
         framesOfTrial(end) = min(size(hCell{1, blockId}, 2), framesOfTrial(end));
         hmatTr = hCell{2, blockId}(:, framesOfTrial(1):framesOfTrial(end));

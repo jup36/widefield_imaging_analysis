@@ -1,4 +1,4 @@
-classdef general_params_dual_L1_K1  
+classdef general_params_dual_L10_K20  
     properties
         %Path Options
         local_bucket = 'Z:\';
@@ -14,7 +14,7 @@ classdef general_params_dual_L1_K1
         sbatch_time = 59;
         sbatch_exclude = 'redshirt-n[12-49]';
         sbatch_memory = 16;
-        sbatch_matlabversion = 'R2021b';
+        sbatch_matlabversion = 'R2018a';
         sbatch_path = "/jukebox/buschman/Rodent Data/Wide Field Microscopy/Widefield_Imaging_Analysis/Spock/";
         sbatch_name = [];               
         stack_suffix = '.ome_stack.mat' %the suffix used to take individual dff and ID for combining e.g. '_dff.mat' for corrected recs and '_dff_uncorrected.mat' for uncorrected recs
@@ -36,8 +36,8 @@ classdef general_params_dual_L1_K1
         
         %CNMF Defaults        
         reverse_fit = 0; 
-        K = 1;
-        L = 1;
+        K = 20;
+        L = 10; % IMPORTANT! 
         non_penalized_iter = 0;
         max_non_penalized_iter =1; 
         w_update_iter = 1;

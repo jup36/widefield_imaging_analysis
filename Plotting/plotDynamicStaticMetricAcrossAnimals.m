@@ -1,54 +1,55 @@
-function h = plotDynamicStaticPEVAcrossAnimals(pevMotifC, pevStaticC, varargin)
-% plotDynamicStaticPEVAcrossAnimals
+function h = plotDynamicStaticMetricAcrossAnimals(metricMotifC, metricStaticC, varargin)
+% plotDynamicStaticMetricAcrossAnimals
 %
-% Plots animal-level mean PEV across sessions for dynamic/motif-based
-% refits versus static-network refits.
+% Generic paired animal-level plot for Dynamic vs Static metrics.
 %
 % INPUT
-%   pevMotifC  : [nAnimals x nSessions] cell array.
-%                Each cell contains a scalar session-level motif PEV.
+%   metricMotifC  : [nAnimals x nSessions] cell array.
+%                   Each cell contains either:
+%                       - scalar metric value
+%                       - 1-row table containing metricName
 %
-%   pevStaticC : [nAnimals x nSessions] cell array.
-%                Each cell contains a scalar session-level static PEV.
+%   metricStaticC : same format as metricMotifC
 %
 % NAME-VALUE OPTIONS
+%   'MetricName'   : table variable to extract if cells contain tables.
+%                    Example: 'mean_H_hoyer_sparsity'
 %   'AnimalLabels' : cell array of animal labels
-%   'CondLabels'   : default {'Dynamic motif', 'Static motif'}
+%   'CondLabels'   : default {'Dynamic', 'Static'}
 %   'MarkerSize'   : default 80
-%   'LineWidth'    : default 1.5
-%   'YLabel'       : default 'Mean PEV across sessions'
-%   'TitleText'    : default 'Dynamic vs static motif reconstruction PEV'
-%   'FigSaveLogic' : true/false, default false
-%   'SaveDir'      : directory to save figure, default pwd
-%   'SaveName'     : base filename, default dynamic_static_PEV
+%   'YLabel'       : y-axis label
+%   'TitleText'    : plot title
+%   'FigSaveLogic' : true/false
+%   'SaveDir'      : directory to save
+%   'SaveName'     : base filename
 
 p = inputParser;
+p.addParameter('MetricName', '', @(x) ischar(x) || isstring(x));
 p.addParameter('AnimalLabels', {}, @(x) iscell(x) || isstring(x));
-p.addParameter('CondLabels', {'Dynamic motif', 'Static motif'}, @(x) iscell(x) || isstring(x));
+p.addParameter('CondLabels', {'Dynamic', 'Static'}, @(x) iscell(x) || isstring(x));
 p.addParameter('MarkerSize', 80, @(x) isnumeric(x) && isscalar(x) && x > 0);
-p.addParameter('LineWidth', 1.5, @(x) isnumeric(x) && isscalar(x) && x > 0);
-p.addParameter('YLabel', 'Mean PEV across sessions', @(x) ischar(x) || isstring(x));
-p.addParameter('TitleText', 'Dynamic vs static motif reconstruction PEV', @(x) ischar(x) || isstring(x));
+p.addParameter('YLabel', 'Metric value', @(x) ischar(x) || isstring(x));
+p.addParameter('TitleText', 'Dynamic vs static metric', @(x) ischar(x) || isstring(x));
 p.addParameter('FigSaveLogic', false, @(x) islogical(x) || isnumeric(x));
 p.addParameter('SaveDir', pwd, @(x) ischar(x) || isstring(x));
-p.addParameter('SaveName', 'dynamic_static_PEV', @(x) ischar(x) || isstring(x));
+p.addParameter('SaveName', 'dynamic_static_metric', @(x) ischar(x) || isstring(x));
 p.parse(varargin{:});
 
+metricName   = char(p.Results.MetricName);
 animalLabels = cellstr(p.Results.AnimalLabels);
 condLabels   = cellstr(p.Results.CondLabels);
 markerSize   = p.Results.MarkerSize;
-lineWidth    = p.Results.LineWidth;
 yLabelText   = char(p.Results.YLabel);
 titleText    = char(p.Results.TitleText);
 figSaveLogic = logical(p.Results.FigSaveLogic);
 saveDir      = char(p.Results.SaveDir);
 saveName     = char(p.Results.SaveName);
 
-if ~isequal(size(pevMotifC), size(pevStaticC))
-    error('pevMotifC and pevStaticC must have the same size.');
+if ~isequal(size(metricMotifC), size(metricStaticC))
+    error('metricMotifC and metricStaticC must have the same size.');
 end
 
-[nAnimals, ~] = size(pevMotifC);
+[nAnimals, ~] = size(metricMotifC);
 
 if isempty(animalLabels)
     animalLabels = arrayfun(@(x) sprintf('Animal %d', x), ...
@@ -58,17 +59,16 @@ elseif numel(animalLabels) ~= nAnimals
 end
 
 if numel(condLabels) ~= 2
-    error('CondLabels must have two entries: dynamic/motif and static.');
+    error('CondLabels must have two entries.');
 end
 
 %% Compute animal-level means across sessions
-
 animalMeanMat = nan(nAnimals, 2);
-animalMeanMat(:, 1) = localAnimalMeans(pevMotifC);
-animalMeanMat(:, 2) = localAnimalMeans(pevStaticC);
+
+animalMeanMat(:, 1) = localAnimalMeansFromCells(metricMotifC, metricName);
+animalMeanMat(:, 2) = localAnimalMeansFromCells(metricStaticC, metricName);
 
 %% Plot
-
 h = figure('Color', 'w');
 hold on;
 
@@ -92,7 +92,7 @@ for a = 1:nAnimals
 
     plot(xA, y, '-', ...
         'Color', animalColors(a,:) * 0.75, ...
-        'LineWidth', lineWidth, ...
+        'LineWidth', 1.2, ...
         'HandleVisibility', 'off');
 
     scatter(xA(1), y(1), markerSize, ...
@@ -112,9 +112,8 @@ for a = 1:nAnimals
         'HandleVisibility', 'off');
 end
 
-% Group means as horizontal gray bars
+% Group mean bars
 groupMean = mean(animalMeanMat, 1, 'omitnan');
-
 barHalfWidth = 0.18;
 
 plot([x(1)-barHalfWidth, x(1)+barHalfWidth], ...
@@ -131,7 +130,7 @@ plot([x(2)-barHalfWidth, x(2)+barHalfWidth], ...
      'LineWidth', 3, ...
      'HandleVisibility', 'off');
 
-% Animal legend using invisible points
+% Animal legend
 for a = 1:nAnimals
     scatter(nan, nan, markerSize, ...
         'MarkerFaceColor', animalColors(a,:), ...
@@ -158,17 +157,14 @@ ax.GridAlpha = 0.12;
 hold off;
 
 %% Print summary
-
 fprintf('\n%s\n', titleText);
-fprintf('Dynamic/motif mean PEV = %.4f\n', groupMean(1));
-fprintf('Static mean PEV        = %.4f\n', groupMean(2));
-fprintf('Mean dynamic - static  = %.4f\n', ...
+fprintf('Dynamic mean = %.4f\n', groupMean(1));
+fprintf('Static mean  = %.4f\n', groupMean(2));
+fprintf('Dynamic - static = %.4f\n', ...
     mean(animalMeanMat(:,1) - animalMeanMat(:,2), 'omitnan'));
 
 %% Save
-
 if figSaveLogic
-
     if exist(saveDir, 'dir') ~= 7
         mkdir(saveDir);
     end
@@ -184,10 +180,10 @@ end
 
 end
 
-function animalMeans = localAnimalMeans(pevC)
-% Compute mean across sessions for each animal, ignoring empty cells/NaNs.
+%% ------------------------------------------------------------------------
+function animalMeans = localAnimalMeansFromCells(metricC, metricName)
 
-[nAnimals, nSessions] = size(pevC);
+[nAnimals, nSessions] = size(metricC);
 animalMeans = nan(nAnimals, 1);
 
 for a = 1:nAnimals
@@ -196,14 +192,37 @@ for a = 1:nAnimals
 
     for s = 1:nSessions
 
-        val = pevC{a, s};
+        val = metricC{a, s};
 
         if isempty(val)
             continue
         end
 
-        if isnumeric(val)
-            sessionVals(s) = mean(val(:), 'omitnan');
+        if istable(val)
+
+            if isempty(metricName)
+                error('MetricName must be provided when cells contain tables.');
+            end
+
+            if ~ismember(metricName, val.Properties.VariableNames)
+                warning('Metric "%s" not found for animal %d session %d.', ...
+                    metricName, a, s);
+                continue
+            end
+
+            metricVal = val.(metricName);
+
+            if isnumeric(metricVal)
+                sessionVals(s) = mean(metricVal(:), 'omitnan');
+            end
+
+        elseif isnumeric(val)
+
+            if isscalar(val)
+                sessionVals(s) = val;
+            else
+                sessionVals(s) = mean(val(:), 'omitnan');
+            end
         end
     end
 
@@ -212,8 +231,8 @@ end
 
 end
 
+%% ------------------------------------------------------------------------
 function C = localPastelColors(n)
-% Generate n readable pastel colors.
 
 base = lines(max(n, 7));
 

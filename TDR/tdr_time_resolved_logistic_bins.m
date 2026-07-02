@@ -232,7 +232,7 @@ if prm.DoPlots
     imagesc(Htime, 1:K, Wz); axis xy;
     xlabel('Time (s)'); ylabel('Motif #');
     colorbar;
-    clim(prm.cdWeightCscale);
+    caxis(prm.cdWeightCscale);
     title('Coding weights (standardized units; + = Go)');
     hold on;
     ylims = ylim;
