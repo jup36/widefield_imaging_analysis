@@ -1,28 +1,58 @@
-function rez = computePerMouseLOOProjectionAndStats(anchorLOO, headerC, glmRezC, trIdC, expertHeaders_perMouse, varargin)
-%computePerMouseLOOProjectionAndStats
+function rez = computePerMouseLOOProjectionAndStats_correctTrials(anchorLOO, headerC, glmRezC, trIdC, expertHeaders_perMouse, varargin)
+%computePerMouseLOOProjectionAndStats_correctTrials
 % Project all sessions onto per-mouse LOO anchors, compute:
 %   (1) Collapsed session metrics per time (per axis): muGo, muNoGo, diff, energy
 %   (2) Permutation stats over session order (shared permutations across metrics)
 %   (3) Trial-level omnibus KW across sessions (fast permutation-based)
 %
-% Major implementation points:
-% - NO inputParser (avoids memory spikes)
-% - Permutations are SHARED across collapsed metrics
-% - Saves per-mouse results after each mouse
-% - Adds one-sided p-values for slope / spearman:
-%       p1_unc, p1_max, p1_cluster
-% - Adds SD-unit slope effect size:
-%       statSD   (slope only)
-% - NEW: optional day4MarkC filtering for slope/spearman stats
-%       If provided, only sessions on/after the mouse-specific day4 date
-%       are used for trend/permutation stats.
+% THIS VARIANT: muGo / muNoGo (and therefore diff, and optionally energy)
+% are computed from CORRECT TRIALS ONLY by default:
+%   muGo   <- mean projection over HIT trials   (not all Go trials)
+%   muNoGo <- mean projection over CR trials    (not all NoGo trials)
+%
+% WHY
+%   The original computePerMouseLOOProjectionAndStats pools ALL Go trials
+%   (Hit + Miss) into muGo and ALL NoGo trials (CR + FA) into muNoGo, for
+%   every session and every axis, uniformly. Because outcome mixture
+%   changes systematically over learning (many FA/Miss early, mostly
+%   CR/Hit once expert), any session-order trend (slope/Spearman) computed
+%   on muGo/muNoGo/diff is confounded with the behavioral-outcome
+%   trajectory, not just the neural one. Restricting to Hit/CR trials
+%   holds the outcome category fixed across sessions, so a trend in the
+%   correct-trial-only trajectory reflects the representation on
+%   correctly-performed trials specifically.
+%
+% NEW BEHAVIOR (relative to the original function)
+%   - goMask   is built from trId.hitI  instead of trId.goI   (by default)
+%   - nogoMask is built from trId.crI   instead of trId.nogoI (by default)
+%   - Legacy behavior is still available via 'TrialPolicy',"GoNoGoByGroup"
+%     for A/B comparison against the original function.
+%   - Each session's Hit-trial count and CR-trial count are recorded
+%     (rezM.sessions.nGoUsed / nNoGoUsed). Sessions with fewer than
+%     'MinTrialsPerCond' Hit trials OR fewer than 'MinTrialsPerCond' CR
+%     trials are EXCLUDED from the trend/permutation stats (folded into
+%     statSessMask, same mechanism as day4MarkC filtering) — NOT silently
+%     included with a noisy few-trial mean. The collapsed muGo/muNoGo/diff
+%     arrays still contain a value (possibly based on very few trials) for
+%     every session for plotting purposes; rezM.sessions.sufficientTrials
+%     tells you which sessions were trustworthy enough to be used for the
+%     stats.
+%   - 'EnergyTrialSubset' controls whether the "energy" collapsed metric
+%     (mean squared projection, a non-directional metric) is computed over
+%     ALL trials ("all", legacy behavior) or over the union of Hit and CR
+%     trials only ("correctOnly", default) — since Miss/FA trials could
+%     otherwise bias the overall energy trend independent of Go/NoGo
+%     representation strength on correctly performed trials.
 %
 % REQUIRED
 %   anchorLOO : output of buildPerMouseLOOAnchors_fromExperts
+%               (or buildPerMouseLOOAnchors_fromExperts_correctTrials)
 %   headerC, glmRezC, trIdC : (J x S) cells
+%               trIdC{j,s} must have fields hitI/missI/crI/faI (and
+%               goI/nogoI if TrialPolicy="GoNoGoByGroup" is used instead)
 %   expertHeaders_perMouse  : (nMouse x nExpertMax) cells
 %
-% NAME-VALUE (common)
+% NAME-VALUE (common; identical to original unless noted)
 %   WhichAxes        : "A" (default) | "Araw_ord"
 %   DoCollapsed      : true (default)
 %   DoOmnibusTrial   : true (default)
@@ -37,6 +67,27 @@ function rez = computePerMouseLOOProjectionAndStats(anchorLOO, headerC, glmRezC,
 %                      e.g. {"m1045","121124"; ...}
 %                      If non-empty, slope/spearman stats use only sessions
 %                      with session date >= day4 date for that mouse.
+%
+%   NEW:
+%   TrialPolicy        : "CorrectOnlyByGroup" (default) | "GoNoGoByGroup"
+%                        Controls which trId fields define goMask/nogoMask.
+%                        "CorrectOnlyByGroup" -> hitI / crI
+%                        "GoNoGoByGroup"      -> goI  / nogoI (legacy)
+%   MinTrialsPerCond   : 5 (default)
+%                        Minimum Hit-trial count AND minimum CR-trial count
+%                        (or Go/NoGo counts under legacy policy) required
+%                        for a session to be included in trend/permutation
+%                        stats. Sessions below threshold are excluded via
+%                        statSessMask (AND'd with any day4MarkC filtering);
+%                        their collapsed muGo/muNoGo/diff values are still
+%                        computed and stored (for plotting) but flagged via
+%                        rezM.sessions.sufficientTrials = false.
+%   EnergyTrialSubset  : "correctOnly" (default) | "all"
+%                        Which trials populate the "energy" collapsed
+%                        metric. "correctOnly" = Hit union CR trials
+%                        (or Go union NoGo under legacy policy); "all" =
+%                        every trial regardless of outcome (legacy
+%                        behavior).
 %
 %   SaveEachMouse    : true (default)
 %   SaveDir          : 'Z:\Rodent Data\dualImaging_parkj\collectData\glmTDR_perMouseRez' (default)
@@ -70,6 +121,11 @@ opt.ClusterMassMode = "sum";      % sum|sumabs
 
 opt.day4MarkC       = [];
 
+% NEW
+opt.TrialPolicy       = "CorrectOnlyByGroup";  % "CorrectOnlyByGroup" | "GoNoGoByGroup"
+opt.MinTrialsPerCond  = 5;
+opt.EnergyTrialSubset = "correctOnly";         % "correctOnly" | "all"
+
 opt.SaveEachMouse   = true;
 opt.SaveDir         = 'Z:\Rodent Data\dualImaging_parkj\collectData\glmTDR_perMouseRez';
 
@@ -92,11 +148,25 @@ end
 opt.WhichAxes       = string(opt.WhichAxes);
 opt.FWER            = lower(string(opt.FWER));
 opt.ClusterMassMode = lower(string(opt.ClusterMassMode));
+opt.TrialPolicy       = string(opt.TrialPolicy);
+opt.EnergyTrialSubset = lower(string(opt.EnergyTrialSubset));
 
 if ischar(opt.StatTypes) || isstring(opt.StatTypes)
     opt.StatTypes = cellstr(string(opt.StatTypes));
 end
 opt.StatTypes = cellfun(@(s) lower(char(string(s))), opt.StatTypes, 'UniformOutput', false);
+
+% determine trId field names for go-like / nogo-like conditions
+switch opt.TrialPolicy
+    case "CorrectOnlyByGroup"
+        goFieldName   = 'hitI';
+        nogoFieldName = 'crI';
+    case "GoNoGoByGroup"
+        goFieldName   = 'goI';
+        nogoFieldName = 'nogoI';
+    otherwise
+        error('Unknown TrialPolicy: %s (must be "CorrectOnlyByGroup" or "GoNoGoByGroup")', opt.TrialPolicy);
+end
 
 % normalize day4 map
 day4Map = [];
@@ -144,7 +214,7 @@ for m = 1:nMouse
     end
 
     if opt.Verbose && (mod(m,opt.VerboseEvery)==0 || m==1 || m==nMouse)
-        fprintf('[Proj+Stats] mouse %d/%d (%s)\n', m, nMouse, mouseId);
+        fprintf('[Proj+Stats:correctTrials] mouse %d/%d (%s)\n', m, nMouse, mouseId);
     end
 
     % -------- collect sessions for this mouse --------
@@ -213,6 +283,10 @@ for m = 1:nMouse
         energy = nan(nSess, nTime, nAxis, 'single');
     end
 
+    % -------- NEW: per-session trial-count bookkeeping --------
+    nGoUsed   = nan(nSess,1);
+    nNoGoUsed = nan(nSess,1);
+
     % -------- project each session --------
     for s = 1:nSess
         gr = sessGlm{s};
@@ -235,17 +309,42 @@ for m = 1:nMouse
         [Z, N, nW] = projectSession_local_(gr, Ause); % [trial x time x axis]
         assert(nW == nTime, 'Time bins mismatch in session %s', char(sessHdr(s)));
 
-        goMask   = local_makeMask_from_trId_(tr, 'goI', N);
-        nogoMask = local_makeMask_from_trId_(tr, 'nogoI', N);
+        % ---- CORRECT-TRIALS-ONLY (by default) go/nogo masks ----
+        goMask   = local_makeMask_from_trId_(tr, goFieldName,   N);
+        nogoMask = local_makeMask_from_trId_(tr, nogoFieldName, N);
 
-        Zgo   = Z(goMask,:,:);
-        Znogo = Z(nogoMask,:,:);
+        nGo   = sum(goMask);
+        nNoGo = sum(nogoMask);
+        nGoUsed(s)   = nGo;
+        nNoGoUsed(s) = nNoGo;
 
         if opt.DoCollapsed
-            muGo(s,:,:)   = single(squeeze(mean(Zgo,   1, 'omitnan')));
-            muNoGo(s,:,:) = single(squeeze(mean(Znogo, 1, 'omitnan')));
-            diffMN(s,:,:) = muGo(s,:,:) - muNoGo(s,:,:);
-            energy(s,:,:) = single(squeeze(mean(Z.^2, 1, 'omitnan')));
+            if nGo >= 1
+                Zgo = Z(goMask,:,:);
+                muGo(s,:,:) = single(squeeze(mean(Zgo, 1, 'omitnan')));
+            end
+            if nNoGo >= 1
+                Znogo = Z(nogoMask,:,:);
+                muNoGo(s,:,:) = single(squeeze(mean(Znogo, 1, 'omitnan')));
+            end
+            diffMN(s,:,:) = muGo(s,:,:) - muNoGo(s,:,:); % NaN if either side missing
+
+            switch opt.EnergyTrialSubset
+                case "correctonly"
+                    energyMask = goMask | nogoMask;
+                    if any(energyMask)
+                        energy(s,:,:) = single(squeeze(mean(Z(energyMask,:,:).^2, 1, 'omitnan')));
+                    end
+                case "all"
+                    energy(s,:,:) = single(squeeze(mean(Z.^2, 1, 'omitnan')));
+                otherwise
+                    error('Unknown EnergyTrialSubset: %s', opt.EnergyTrialSubset);
+            end
+        end
+
+        if opt.Verbose && (nGo < opt.MinTrialsPerCond || nNoGo < opt.MinTrialsPerCond)
+            fprintf('  [lowTrials] %s | nGo(%s)=%d nNoGo(%s)=%d (Min=%d) -> excluded from trend stats\n', ...
+                char(sessHdr(s)), goFieldName, nGo, nogoFieldName, nNoGo, opt.MinTrialsPerCond);
         end
     end
 
@@ -256,6 +355,11 @@ for m = 1:nMouse
         rezM.collapsed.diff   = diffMN;
         rezM.collapsed.energy = energy;
     end
+
+    rezM.sessions.nGoUsed   = nGoUsed;
+    rezM.sessions.nNoGoUsed = nNoGoUsed;
+    sufficientTrials = (nGoUsed >= opt.MinTrialsPerCond) & (nNoGoUsed >= opt.MinTrialsPerCond);
+    rezM.sessions.sufficientTrials = sufficientTrials;
 
     % -------- determine sessions used for trend stats --------
     statSessMask = true(nSess,1);
@@ -274,12 +378,22 @@ for m = 1:nMouse
         end
     end
 
+    % NEW: AND in the trial-sufficiency gate
+    statSessMask = statSessMask & sufficientTrials;
+
     rezM.sessions.statSessMask = statSessMask;
     rezM.sessions.day4Date     = day4Date;
 
-    if opt.Verbose && ~isempty(day4Map)
-        fprintf('  [day4] %s | keep %d/%d sessions from %s onward\n', ...
-            char(mouseId), sum(statSessMask), nSess, char(string(day4Date, 'MMddyy')));
+    if opt.Verbose
+        nExcludedByTrials = sum(~sufficientTrials);
+        fprintf('  [trialGate] %s | %d/%d sessions excluded from stats for insufficient %s/%s trials (Min=%d)\n', ...
+            char(mouseId), nExcludedByTrials, nSess, goFieldName, nogoFieldName, opt.MinTrialsPerCond);
+        if ~isempty(day4Map)
+            fprintf('  [day4] %s | keep %d/%d sessions from %s onward (before trial gate)\n', ...
+                char(mouseId), sum(sessDt >= day4Date), nSess, char(string(day4Date, 'MMddyy')));
+        end
+        fprintf('  [stats-sessions] %s | final nSessStat = %d/%d (day4 AND trialGate)\n', ...
+            char(mouseId), sum(statSessMask), nSess);
     end
 
     % -------- permutation stats over sessions --------
@@ -295,14 +409,14 @@ for m = 1:nMouse
         metricNames = fieldnames(Y);
         reshapeStat = @(v) reshape(v, [nTime, nAxis])'; % 1 x (nTime*nAxis) -> [nAxis x nTime]
 
-        % apply optional day4 filtering only for stats
+        % apply day4 + trial-gate filtering for stats
         statIdx = find(statSessMask);
         nSessStat = numel(statIdx);
         rezM.sessions.nSessStat = nSessStat;
         rezM.sessions.statIdx   = statIdx(:);
 
         if nSessStat < 2
-            warning('Mouse %s: fewer than 2 sessions remain after stat-session filtering. Skipping trend stats.', char(mouseId));
+            warning('Mouse %s: fewer than 2 sessions remain after stat-session filtering (day4 + trial gate). Skipping trend stats.', char(mouseId));
         else
             x = (1:nSessStat)';
 
@@ -605,7 +719,7 @@ for m = 1:nMouse
         end
 
         mmddyy = char(datetime('today','Format','MMddyy'));
-        fn = sprintf('%s_glmTDR_perMouseRez_%s.mat', char(mouseId), mmddyy);
+        fn = sprintf('%s_glmTDR_perMouseRez_correctTrials_%s.mat', char(mouseId), mmddyy);
         fpath = fullfile(saveDir, fn);
 
         rezMouse = rezM; %#ok<NASGU>
@@ -626,7 +740,7 @@ end % function
 
 
 %% ======================================================================
-% Helpers (local subfunctions)
+% Helpers (local subfunctions) — unchanged from original unless noted
 % ======================================================================
 
 function day4 = normalizeDay4MarkC_local_(day4In)
@@ -712,6 +826,8 @@ end
 function m = local_makeMask_from_trId_(trId, field, N)
 m = true(N,1);
 if isempty(trId) || ~isstruct(trId) || ~isfield(trId, field) || isempty(trId.(field))
+    warning('local_makeMask_from_trId_:MissingField', ...
+        'trId.%s missing/empty; using all trials for this condition.', field);
     return;
 end
 x = trId.(field);
@@ -719,6 +835,9 @@ if islogical(x)
     x = x(:);
     if numel(x)==N
         m = x;
+    else
+        warning('local_makeMask_from_trId_:BadLength', ...
+            'trId.%s length %d != N=%d; using all trials for this condition.', field, numel(x), N);
     end
 else
     idx = unique(round(x(:)));
@@ -730,6 +849,7 @@ end
 
 function out = omnibusKW_perm_fast_overTime_local_(trialCell, nTime, nAxis, opt)
 % Fast permutation-based Kruskal-Wallis omnibus test across sessions.
+% (Unchanged from original; DoOmnibusTrial defaults to false.)
 
 nSess = numel(trialCell);
 
@@ -742,7 +862,6 @@ if nSess < 2
     return;
 end
 
-% ---------- precompute pooled ranks / labels once ----------
 ranksCell = cell(nAxis, nTime);
 gCell     = cell(nAxis, nTime);
 NCell     = nan(nAxis, nTime);
@@ -783,7 +902,6 @@ for a = 1:nAxis
     end
 end
 
-% ---------- permutation null ----------
 permStat = nan(opt.nPerm, nAxis, nTime, 'single');
 
 reportEvery = max(1, round(opt.nPerm * (opt.PermProgressPct/100)));
@@ -812,12 +930,11 @@ for p = 1:opt.nPerm
     end
 end
 
-% ---------- p-values ----------
 out.p_unc = ones(nTime, nAxis, 'single');
 
 for a = 1:nAxis
-    obsAT  = double(out.stat(:,a))';            % [1 x nTime]
-    permAT = squeeze(double(permStat(:,a,:)));  % [nPerm x nTime]
+    obsAT  = double(out.stat(:,a))';
+    permAT = squeeze(double(permStat(:,a,:)));
 
     validT = isfinite(obsAT);
     if any(validT)
@@ -827,7 +944,6 @@ for a = 1:nAxis
     end
 end
 
-% ---------- max-FWER ----------
 if opt.FWER == "max" || opt.FWER == "both"
     out.p_max = ones(nTime, nAxis, 'single');
 
@@ -845,7 +961,6 @@ if opt.FWER == "max" || opt.FWER == "both"
     end
 end
 
-% ---------- cluster-FWER ----------
 if opt.FWER == "cluster" || opt.FWER == "both"
     out.p_cluster   = ones(nTime, nAxis, 'single');
     out.thr_cluster = nan(nTime, nAxis, 'single');

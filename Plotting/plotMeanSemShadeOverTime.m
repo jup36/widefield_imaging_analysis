@@ -20,6 +20,8 @@ function h = plotMeanSemShadeOverTime(meanMat, semMat, x, colorMat, varargin)
 %   'LegendStr'    : cellstr/string of legend entries (default = {})
 %   'PlotZeroLine' : logical scalar (default = false)
 %   'ZeroLineX'    : x location for vertical line, default = 0
+%   'ylim'         : optional y-axis limits, e.g. [0 1].
+%                    default = []
 %
 %   'figSaveLogic' : logical scalar; whether to save the figure (default = false)
 %   'figSaveDir'   : figure save directory (default = [])
@@ -53,6 +55,10 @@ addParameter(ip, 'TitleStr', '', @(x) ischar(x) || isstring(x));
 addParameter(ip, 'LegendStr', {}, @(x) iscell(x) || isstring(x));
 addParameter(ip, 'PlotZeroLine', false, @(x) islogical(x) && isscalar(x));
 addParameter(ip, 'ZeroLineX', 0, @(x) isnumeric(x) && isscalar(x));
+
+% New optional y-axis limits
+addParameter(ip, 'ylim', [], ...
+    @(x) isempty(x) || (isnumeric(x) && numel(x)==2 && x(1) < x(2)));
 
 addParameter(ip, 'figSaveLogic', false, @(x) islogical(x) && isscalar(x));
 addParameter(ip, 'figSaveDir', [], @(x) isempty(x) || ischar(x) || isstring(x));
@@ -127,6 +133,11 @@ end
 if ~isempty(P.LegendStr)
     legend(h.ax, h.line, cellstr(string(P.LegendStr)), ...
         'Location', 'best', 'Interpreter', 'none');
+end
+
+% Apply optional y-axis limits
+if ~isempty(P.ylim)
+    ylim(h.ax, P.ylim);
 end
 
 box(h.ax, 'off');

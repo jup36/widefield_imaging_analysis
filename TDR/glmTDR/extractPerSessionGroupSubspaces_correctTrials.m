@@ -1,18 +1,55 @@
-function rez = extractPerSessionGroupSubspaces(headerC, glmRezC, trIdC, varargin)
-%EXTRACTPERSESSIONGROUPSUBSPACES
-% Extract session-specific motif-space subspaces for selected GLM predictor groups.
+function rez = extractPerSessionGroupSubspaces_correctTrials(headerC, glmRezC, trIdC, varargin)
+%EXTRACTPERSESSIONGROUPSUBSPACES_CORRECTTRIALS
+% Extract session-specific motif-space subspaces for selected GLM predictor
+% groups, using CORRECT TRIALS ONLY (Hit for Go-related groups, CR for
+% NoGo-related groups) by default.
 %
-% rez = extractPerSessionGroupSubspaces(headerC, glmRezC, trIdC, 'Name', value, ...)
+% rez = extractPerSessionGroupSubspaces_correctTrials(headerC, glmRezC, trIdC, 'Name', value, ...)
+%
+% WHY THIS VARIANT EXISTS
+%   The original extractPerSessionGroupSubspaces pools ALL Go trials
+%   (Hit + Miss) or ALL NoGo trials (CR + FA) into the SVD used to define
+%   each session's group subspace ('TrialPolicy',"GoNoGoByGroup"). Since
+%   outcome mixture changes systematically over learning (many FA/Miss
+%   early, mostly CR/Hit once expert), the resulting per-session subspace
+%   trajectory (and its similarity to the expert reference subspace,
+%   computed downstream) is confounded with the behavioral-outcome
+%   trajectory, not just a change in the underlying sensory/task
+%   representation. Restricting to Hit/CR trials holds the outcome
+%   category fixed across sessions.
+%
+%   Additionally, the original silently falls back to ALL trials
+%   whenever the requested mask is empty:
+%       if ~any(trialMask), trialMask = true(nTrial,1); end
+%   For a pure correct-trials-only approach this defeats the purpose (a
+%   low-trial-count session would silently get contaminated by
+%   incorrect trials). This variant instead SKIPS that group for that
+%   session (returns [] for sub, same as any other extraction failure)
+%   when the correct-trial count falls below 'MinTrialsPerGroup'.
 %
 % REQUIRED
 %   headerC : cell (J x S) of session headers
 %   glmRezC : cell (J x S) of glmRez structs
 %   trIdC   : cell (J x S) of trial-type structs
+%             (must have hitI/crI fields if TrialPolicy="CorrectOnlyByGroup";
+%              goI/nogoI fields if TrialPolicy="GoNoGoByGroup")
 %
 % NAME-VALUE
 %   'GroupNames'         : default = {'GoToneOn','NoGoToneOn','ToneOffGo','ToneOffNoGo'}
 %   'KPerGroup'          : default = 3
-%   'TrialPolicy'        : "GoNoGoByGroup" (default) | "all"
+%   'TrialPolicy'        : "CorrectOnlyByGroup" (default) | "GoNoGoByGroup" | "all"
+%                          "CorrectOnlyByGroup" -> Hit trials for Go-related
+%                             groups, CR trials for NoGo-related groups.
+%                          "GoNoGoByGroup"      -> Go trials / NoGo trials
+%                             (legacy stimulus-identity masking; kept for
+%                             A/B comparison against the original function).
+%                          "all"                -> no trial restriction.
+%   'MinTrialsPerGroup'  : default = 5
+%                          Minimum number of valid (masked) trials required
+%                          for a session x group subspace to be extracted.
+%                          Below this, sub is set to [] for that
+%                          session/group (NOT silently computed on all
+%                          trials, unlike the original function).
 %   'SessionWeighting'   : "none" (default) | "fro"
 %   'Verbose'            : true
 %   'VerboseEvery'       : 1
@@ -33,10 +70,13 @@ function rez = extractPerSessionGroupSubspaces(headerC, glmRezC, trIdC, varargin
 %           .U           : [Kmotif x kEff] right singular vectors
 %           .sval        : singular values kept
 %           .explained   : variance explained within group Yhat
-%           .nTrial      : number of selected trials
+%           .nTrial      : number of selected (masked) trials actually used
 %           .nTime       : number of time bins
 %           .cols        : predictor cols used
 %           .groupName
+%           .nTrialAvailable : total trials of this outcome type available
+%                              before the MinTrialsPerGroup check (NEW)
+%         (or [] if extraction failed / skipped due to insufficient trials)
 %
 % NOTE
 %   The columns of U define a subspace. Their order/sign should NOT be
@@ -54,7 +94,8 @@ addRequired(ip, 'trIdC',   @(x) iscell(x) && isequal(size(x), size(headerC)));
 addParameter(ip, 'GroupNames', {'GoToneOn','NoGoToneOn','ToneOffGo','ToneOffNoGo'}, ...
     @(x) iscell(x) || isstring(x));
 addParameter(ip, 'KPerGroup', 3, @(x) isnumeric(x) && isscalar(x) && x>=1);
-addParameter(ip, 'TrialPolicy', "GoNoGoByGroup", @(x) ischar(x) || isstring(x));
+addParameter(ip, 'TrialPolicy', "CorrectOnlyByGroup", @(x) ischar(x) || isstring(x));
+addParameter(ip, 'MinTrialsPerGroup', 5, @(x) isnumeric(x) && isscalar(x) && x>=0);
 addParameter(ip, 'SessionWeighting', "none", @(x) ischar(x) || isstring(x));
 addParameter(ip, 'Verbose', true, @(x) islogical(x) && isscalar(x));
 addParameter(ip, 'VerboseEvery', 1, @(x) isnumeric(x) && isscalar(x) && x>=1);
@@ -66,6 +107,7 @@ P = ip.Results;
 groupNames = cellstr(string(P.GroupNames));
 kPerGroup  = P.KPerGroup;
 trialPolicy = string(P.TrialPolicy);
+minTrialsPerGroup = P.MinTrialsPerGroup;
 sessionWeighting = lower(string(P.SessionWeighting));
 
 if isempty(P.selectMice)
@@ -96,7 +138,7 @@ for m = 1:nMouse
     mouseId = mouseIds{m};
 
     if P.Verbose && (mod(m, P.VerboseEvery)==0 || m==1 || m==nMouse)
-        fprintf('[extractPerSessionGroupSubspaces] mouse %d/%d (%s)\n', m, nMouse, mouseId);
+        fprintf('[extractPerSessionGroupSubspaces:correctTrials] mouse %d/%d (%s)\n', m, nMouse, mouseId);
     end
 
     [sessHdr, sessGlm, sessTr] = collectMouseSessions_sub_(mouseId, uniqHdr, glmFirst, trFirst);
@@ -130,11 +172,17 @@ for m = 1:nMouse
             gName = groupNames{g};
 
             try
-                sub = extractOneGroupSubspace_sub_(gr, tr, gName, kPerGroup, trialPolicy, sessionWeighting);
+                sub = extractOneGroupSubspace_sub_(gr, tr, gName, kPerGroup, trialPolicy, ...
+                    minTrialsPerGroup, sessionWeighting);
             catch ME
                 warning('Failed subspace extraction | mouse=%s session=%s group=%s | %s', ...
                     mouseId, char(string(sessHdr(s))), gName, ME.message);
                 sub = [];
+            end
+
+            if isempty(sub) && P.Verbose
+                fprintf('  [skip] mouse=%s session=%s group=%s | insufficient valid trials or extraction failed\n', ...
+                    mouseId, char(string(sessHdr(s))), gName);
             end
 
             outS.(gName) = sub;
@@ -149,8 +197,10 @@ end
 end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%% HELPER FUNCTION %%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function sub = extractOneGroupSubspace_sub_(glmRez, trId, groupName, kPerGroup, trialPolicy, sessionWeighting)
-% Returns a struct with U = [Kmotif x kEff]
+function sub = extractOneGroupSubspace_sub_(glmRez, trId, groupName, kPerGroup, trialPolicy, ...
+    minTrialsPerGroup, sessionWeighting)
+% Returns a struct with U = [Kmotif x kEff], or [] if extraction is
+% skipped (insufficient valid trials) or otherwise fails.
 
 assert(isfield(glmRez,'X_design') && isfield(glmRez,'beta') && isfield(glmRez,'muX') && isfield(glmRez,'sdX') ...
     && isfield(glmRez,'group') && isfield(glmRez,'decBins') && isfield(glmRez.decBins,'time'), ...
@@ -180,11 +230,16 @@ Kmotif = size(Yhat,2);
 
 Y3 = reshape(Yhat, [nTrial, nTime, Kmotif]);
 
-% Apply trial selection
-trialMask = trialMaskFromGroup_sub_(trId, string(groupName), nTrial, trialPolicy);
-if isempty(trialMask) || ~any(trialMask)
-    trialMask = true(nTrial,1);
+% ---- Apply trial selection: NO silent fallback to all trials ----
+[trialMask, nAvailable] = trialMaskFromGroup_sub_(trId, string(groupName), nTrial, trialPolicy);
+
+if nAvailable < minTrialsPerGroup
+    % Pure correct-trials-only pooling: skip this session/group rather
+    % than falling back to all trials.
+    sub = [];
+    return;
 end
+% -------------------------------------------------------------------
 
 Y3 = Y3(trialMask,:,:);
 nTrialSel = size(Y3,1);
@@ -221,6 +276,7 @@ sub.U = U;
 sub.sval = sval(1:kEff);
 sub.explained = expl;
 sub.nTrial = nTrialSel;
+sub.nTrialAvailable = nAvailable;
 sub.nTime = nTime;
 sub.cols = groupCols;
 sub.groupName = char(groupName);
@@ -282,7 +338,11 @@ end
 end
 
 
-function trialMask = trialMaskFromGroup_sub_(trId, groupName, nTrial, policy)
+function [trialMask, nSelected] = trialMaskFromGroup_sub_(trId, groupName, nTrial, policy)
+% Returns trialMask (logical Nx1) AND nSelected (count of true entries).
+% NOTE: unlike the original function, this does NOT silently fall back to
+% all trials when the mask is empty — the caller enforces
+% MinTrialsPerGroup and skips extraction if nSelected is too low.
 
 policy = lower(string(policy));
 groupName = lower(string(groupName));
@@ -290,11 +350,13 @@ groupName = lower(string(groupName));
 trialMask = true(nTrial,1);
 
 if isempty(trId) || ~isstruct(trId)
+    nSelected = sum(trialMask);
     return;
 end
 
 switch policy
     case "all"
+        nSelected = sum(trialMask);
         return
 
     case "gonogobygroup"
@@ -304,13 +366,18 @@ switch policy
             trialMask = makeMask_sub_(trId, 'goI', nTrial);
         end
 
+    case "correctonlybygroup"
+        if contains(groupName, "nogo")
+            trialMask = makeMask_sub_(trId, 'crI', nTrial);
+        else
+            trialMask = makeMask_sub_(trId, 'hitI', nTrial);
+        end
+
     otherwise
         error('Unknown TrialPolicy: %s', policy);
 end
 
-if ~any(trialMask)
-    trialMask = true(nTrial,1);
-end
+nSelected = sum(trialMask);
 end
 
 
@@ -319,6 +386,9 @@ function m = makeMask_sub_(trId, field, N)
 m = true(N,1);
 
 if ~isfield(trId, field) || isempty(trId.(field))
+    warning('makeMask_sub_:MissingField', ...
+        'trId.%s missing/empty; treating as zero valid trials for this group.', field);
+    m = false(N,1);
     return;
 end
 
@@ -328,6 +398,10 @@ if islogical(x)
     x = x(:);
     if numel(x)==N
         m = x;
+    else
+        warning('makeMask_sub_:BadLength', ...
+            'trId.%s length %d != N=%d; treating as zero valid trials for this group.', field, numel(x), N);
+        m = false(N,1);
     end
 else
     idx = unique(round(x(:)));

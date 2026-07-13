@@ -236,7 +236,7 @@ set(h.ax, 'YDir', 'reverse');
 colormap(h.ax, P.colormap);
 
 if ~isempty(P.clims)
-    clim(h.ax, P.clims);
+    caxis(h.ax, P.clims);
 end
 
 xlabel(h.ax, P.xlabelStr);

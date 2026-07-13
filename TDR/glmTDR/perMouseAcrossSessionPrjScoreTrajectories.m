@@ -14,7 +14,7 @@ function out = perMouseAcrossSessionPrjScoreTrajectories(prj_glmA, headerC, time
 %   'targetName'      : "NoGoToneOn_1" (required; must exist in names list)
 %   'trIdC'           : cell [J x S], each entry is struct of trial selectors (optional)
 %   'trialField'      : "crI" (default). If trIdC provided, uses trIdC{j,s}.(trialField) to pick trials.
-%   
+%
 % NAME-VALUE (time + filtering)
 %   'tBounds'         : [] (default) or [tMin tMax]
 %   'smoothingFactor' : 0 (default) or positive integer (e.g. 5)
@@ -81,19 +81,19 @@ effectiveDateLaterThan = opt.dateLaterThan;
 if ~isempty(opt.day4MarkC)
     d4 = opt.day4MarkC;
     if isstring(d4), d4 = cellstr(d4); end
-
+    
     % normalize to cell array
     if iscell(d4)
         % accept either Nx2 cell OR 1D cellstr pairs - but assume Nx2 as specified
         assert(size(d4,2) == 2, 'day4MarkC must be an Nx2 cell/string array: {mouseId, "MMDDYY"; ...}.');
         mouseCol = string(d4(:,1));
         dateCol  = string(d4(:,2));
-
+        
         hit = find(mouseCol == mouseId, 1, 'first');
         if isempty(hit)
             error('day4MarkC provided, but mouseId=%s was not found in day4MarkC.', mouseId);
         end
-
+        
         effectiveDateLaterThan = dateCol(hit);
     else
         error('day4MarkC must be empty or an Nx2 cell/string array.');
@@ -139,14 +139,14 @@ assert(~isempty(rowIdx), 'Could not find any headerC row containing mouseId=%s.'
 % perMouse names list resolution (unchanged)
 if projType == "permouse"
     nameList = [];
-
+    
     if isfield(prj_glmA,'perMouse') && isfield(prj_glmA.perMouse,'namesC') ...
             && iscell(prj_glmA.perMouse.namesC) ...
             && numel(prj_glmA.perMouse.namesC) >= rowIdx ...
             && ~isempty(prj_glmA.perMouse.namesC{rowIdx})
         nameList = prj_glmA.perMouse.namesC{rowIdx};
     end
-
+    
     if isempty(nameList) && isfield(prj_glmA,'perMouse') && isfield(prj_glmA.perMouse,'namesC') ...
             && iscell(prj_glmA.perMouse.namesC)
         for ii = 1:numel(prj_glmA.perMouse.namesC)
@@ -156,12 +156,12 @@ if projType == "permouse"
             end
         end
     end
-
+    
     if isempty(nameList) && isfield(prj_glmA,'global') && isfield(prj_glmA.global,'names') ...
             && ~isempty(prj_glmA.global.names)
         nameList = prj_glmA.global.names;
     end
-
+    
     assert(~isempty(nameList), 'Could not resolve axis names (perMouse.namesC empty and global.names missing).');
     nameList = cellstr(string(nameList(:)'));
 end
@@ -269,14 +269,14 @@ legC = cell(1, Ns);
 
 for k = 1:Ns
     jj = idxKeep(k);
-
+    
     Z = ZC_row{jj};
     hdrSess = string(hdrRow{jj});
     headersUsed{k} = char(hdrSess);
-
+    
     z1 = squeeze(Z(:, :, targetCol));   % [N x T]
     N  = size(z1,1);
-
+    
     if useTrials
         trS = trIdRow{jj};
         if ~isempty(trS) && isstruct(trS) && isfield(trS, char(string(opt.trialField)))
@@ -291,17 +291,18 @@ for k = 1:Ns
             end
         end
     end
-
+    
     zMean = mean(z1, 1, 'omitnan');   % 1 x T
     zMean = zMean(tIdx)';             % [Tsel x 1]
-
+    
     if opt.smoothingFactor > 0
+        zMean = double(zMean);
         zMean = smooth2a(zMean, opt.smoothingFactor, 0);
     end
     zMeanC{k} = zMean;
-
+    
     col = blend_to_white(baseCol, wVec(k));
-
+    
     if opt.MakeFigure
         hLeg(k) = plot(tPlot, zMean, 'LineWidth', opt.LineWidth, 'Color', col);
     end
@@ -322,21 +323,21 @@ if opt.MakeFigure && ~isempty(figSaveDir)
     if ~exist(figSaveDir, 'dir')
         mkdir(figSaveDir);
     end
-
+    
     todayStr = datestr(now, 'mmddyy');
     trialFieldStr = char(string(opt.trialField));
     projTypeStr   = char(projType);
     targetStr     = char(targetName);
-
+    
     fbase = sprintf('%s_%s_%s_%s_acrossSession_%s.pdf', ...
         char(mouseId), trialFieldStr, projTypeStr, targetStr, todayStr);
-
+    
     fbase = sanitize_filename(fbase);
     fpath = fullfile(figSaveDir, fbase);
-
+    
     set(gcf, 'PaperPositionMode','auto');
     print(gcf, fpath, '-dpdf', '-painters', '-bestfit');
-
+    
     fprintf('[perMouseAcrossSession] saved: %s\n', fpath);
 end
 
