@@ -13,6 +13,22 @@ function h = plot_beta_groupMeanBars(beta, X_names, motifId, varargin)
 %   - xticklabels rotated 45 degrees
 %   - 'plotTonePredictors' (default=true). If false:
 %       exclude tone predictors entirely and plot only "other" bars.
+%
+% ADDED (for reuse with synthetic/group-mean data, e.g.
+% plotMotifOtherBetaByGroup.m -- see 'yLim' and 'saveMotifId' below):
+%   - 'yLim'         : [min max] override for the y-axis, applied BEFORE
+%                      the figure is saved (so harmonizing the y-axis
+%                      across multiple calls/panels actually shows up in
+%                      the saved PDF, not just the on-screen figure).
+%                      Default: [] (auto-scaled via axis tight, as before).
+%   - 'saveMotifId'  : override for the motif number used in the SAVED
+%                      FILENAME only (data indexing/plotting still use
+%                      the real motifId argument). Use this when beta is
+%                      synthetic/single-column data standing in for some
+%                      other real motif (e.g. a group-mean profile), so
+%                      the file is tagged with the motif it actually
+%                      represents instead of its column index.
+%                      Default: [] (use motifId, as before).
 
 % ---------------- parse ----------------
 p = inputParser;
@@ -26,8 +42,19 @@ p.addParameter('figSaveDir', {}, @(x) isempty(x) || ischar(x) || isstring(x) || 
 p.addParameter('header', '', @(s) ischar(s) || isstring(s));
 p.addParameter('figSaveKeyword', '', @(s) ischar(s) || isstring(s));
 
+p.addParameter('yLim', [], @(x) isempty(x) || (isnumeric(x) && numel(x)==2));
+p.addParameter('saveMotifId', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
+
 p.parse(varargin{:});
 opt = p.Results;
+
+% Single source of truth for "which motif number to show/save this as" --
+% used by BOTH the y-axis label AND the saved filename. Falls back to
+% motifId (the real column-index argument) unless overridden.
+motifForDisplay = motifId;
+if ~isempty(opt.saveMotifId)
+    motifForDisplay = opt.saveMotifId;
+end
 
 % normalize figSaveDir
 figSaveDir = opt.figSaveDir;
@@ -127,15 +154,21 @@ set(h.ax, 'TickLabelInterpreter','none');
 xtickangle(h.ax, 45);   % <<< rotated as requested
 
 xlabel(h.ax, 'Predictor group (collapsed)');
-ylabel(h.ax, sprintf('\\beta mean (motif %d)', motifId));
+ylabel(h.ax, sprintf('\\beta mean (motif %d)', motifForDisplay));
 
 if strlength(string(opt.title))>0
     title(h.ax, opt.title, 'Interpreter','none');
 else
-    title(h.ax, sprintf('Motif %d: mean \\beta by predictor type', motifId), 'Interpreter','none');
+    title(h.ax, sprintf('Motif %d: mean \\beta by predictor type', motifForDisplay), 'Interpreter','none');
 end
 
 box(h.ax,'off'); grid(h.ax,'on'); set(h.ax,'TickDir','out'); axis tight;
+
+% yLim override, applied BEFORE saving so a harmonized range across
+% multiple calls actually ends up in the saved PDF
+if ~isempty(opt.yLim)
+    ylim(h.ax, opt.yLim);
+end
 
 % ---------------- save (optional) ----------------
 if strlength(figSaveDir) > 0
@@ -149,7 +182,8 @@ if strlength(figSaveDir) > 0
         parts(end+1,1) = "noTone";
     end
     if strlength(figSaveKeyword)>0, parts(end+1,1) = figSaveKeyword; end
-    parts(end+1,1) = "motif" + string(motifId);
+
+    parts(end+1,1) = "motif" + string(motifForDisplay);
     parts(end+1,1) = dateStr;
 
     figSaveName = strjoin(parts, "_");

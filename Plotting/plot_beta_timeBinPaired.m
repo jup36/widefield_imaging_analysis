@@ -68,14 +68,15 @@ function h = plot_beta_timeBinPaired(beta, X_names, motifId, varargin)
 %                       label/divider positions are baked in at plot
 %                       time. Default: [] (auto-scaled to the data, as
 %                       before).
-%   'saveMotifId'     : override for the motif number used in the SAVED
-%                       FILENAME only (data indexing/plotting still use
-%                       the real motifId argument). Use this when beta is
+%   'saveMotifId'     : override for the motif number shown in the Y-AXIS
+%                       LABEL, DEFAULT TITLE, and SAVED FILENAME (data
+%                       indexing/plotting itself still uses the real
+%                       motifId argument). Use this when beta is
 %                       synthetic/single-column data for some other real
-%                       motif (e.g. a group-mean profile), so the file
-%                       gets tagged with the motif it actually represents
-%                       instead of its column index. Default: [] (use
-%                       motifId, as before).
+%                       motif (e.g. a group-mean profile), so the figure
+%                       is labeled and tagged with the motif it actually
+%                       represents instead of its column index. Default:
+%                       [] (use motifId, as before).
 %
 % OUTPUT
 %   h : struct with fig/ax handles, plotted-object handles, computed
@@ -115,6 +116,14 @@ p.addParameter('yLim', [], @(x) isempty(x) || (isnumeric(x) && numel(x)==2));
 p.addParameter('saveMotifId', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x)));
 p.parse(varargin{:});
 opt = p.Results;
+
+% Single source of truth for "which motif number to show/save this as" --
+% used by BOTH the y-axis label/default title AND the saved filename.
+% Falls back to motifId (the real column-index argument) unless overridden.
+motifForDisplay = motifId;
+if ~isempty(opt.saveMotifId)
+    motifForDisplay = opt.saveMotifId;
+end
 
 % normalize figSaveDir
 figSaveDir = opt.figSaveDir;
@@ -419,13 +428,13 @@ switch lower(opt.plotStyle)
 end
 
 xlabel(h.ax, 'Time bin (basis index)');
-ylabel(h.ax, sprintf('\\beta (motif %d)', motifId));
+ylabel(h.ax, sprintf('\\beta (motif %d)', motifForDisplay));
 
 if strlength(string(opt.title)) > 0
     title(h.ax, opt.title, 'Interpreter', 'none');
 else
     styleStr = ternary_(strcmpi(opt.plotStyle,'curve'), 'smoothed \beta profile', 'paired \beta');
-    title(h.ax, sprintf('Motif %d: %s by time bin', motifId, styleStr), 'Interpreter', 'tex');
+    title(h.ax, sprintf('Motif %d: %s by time bin', motifForDisplay, styleStr), 'Interpreter', 'tex');
 end
 box(h.ax, 'off');
 grid(h.ax, 'on');
@@ -449,11 +458,7 @@ if strlength(figSaveDir) > 0
         parts(end+1,1) = "glmBetaPaired";
     end
     if strlength(figSaveKeyword) > 0, parts(end+1,1) = figSaveKeyword; end
-    motifForName = motifId;
-    if ~isempty(opt.saveMotifId)
-        motifForName = opt.saveMotifId;
-    end
-    parts(end+1,1) = "motif" + string(motifForName);
+    parts(end+1,1) = "motif" + string(motifForDisplay);
     parts(end+1,1) = dateStr;
 
     figSaveName = strjoin(parts, "_");

@@ -22,11 +22,21 @@ function h = plotMotifToneBetaByGroup(synthBetaByGroup, synthNames, groupNames, 
 %   "Tone Onset"/"Tone Offset" labels are correctly positioned for the
 %   FINAL shared range rather than each group's own range.
 %
+%   NOTE ON LABELING: synthBetaByGroup.(gName) always has a single column
+%   (the group-mean synthetic beta for the real motif motifId), so it is
+%   always passed to plot_beta_timeBinPaired as column index 1. That
+%   inner function labels its y-axis using that column index, which would
+%   otherwise show "motif 1" regardless of the real motifId. This wrapper
+%   overrides the y-axis label after each call to show the actual
+%   motifId. The title also uses the plain word "beta" rather than a TeX
+%   '\beta' escape, since the latter was not rendering correctly.
+%
 % INPUTS
 %   synthBetaByGroup, synthNames, groupNames, nAnimalsByGroup : outputs of
 %       computeMotifToneBetaByGroup.m.
 %   motifId : the real motif number this data came from (used only for
-%       titling -- the underlying synthetic beta has a single column).
+%       titling and y-axis labeling -- the underlying synthetic beta has
+%       a single column).
 %
 % NAME-VALUE ARGS
 %   'plotStyle'     : 'bar' or 'curve', passed through to
@@ -56,7 +66,7 @@ function h = plotMotifToneBetaByGroup(synthBetaByGroup, synthNames, groupNames, 
 %           'figSaveDir', figSaveDir, 'figSaveKeyword', 'toneBetaByGroup');
 %
 % See also: computeMotifToneBetaByGroup, plot_beta_timeBinPaired
-
+ 
 p = inputParser;
 p.addParameter('plotStyle', 'bar', @(s) any(strcmpi(s, {'bar','curve'})));
 p.addParameter('includeOffset', true, @(x) islogical(x) && isscalar(x));
@@ -68,7 +78,7 @@ p.addParameter('figSaveDir', {}, @(x) isempty(x) || ischar(x) || isstring(x) || 
 p.addParameter('figSaveKeyword', '', @(s) ischar(s) || isstring(s));
 p.parse(varargin{:});
 opt = p.Results;
-
+ 
 figSaveDir = opt.figSaveDir;
 if iscell(figSaveDir)
     if isempty(figSaveDir), figSaveDir = ""; else, figSaveDir = string(figSaveDir{1}); end
@@ -76,7 +86,7 @@ else
     figSaveDir = string(figSaveDir);
 end
 figSaveKeyword = string(opt.figSaveKeyword);
-
+ 
 validGroups = {};
 for gi = 1:numel(groupNames)
     gName = groupNames{gi};
@@ -87,13 +97,13 @@ for gi = 1:numel(groupNames)
     end
 end
 assert(~isempty(validGroups), 'No group has valid data to plot.');
-
+ 
 h = struct();
 h.byGroup = struct();
 h.opt = opt;
-
+ 
 nAfun = @(gName) getfield_or_zero_(nAnimalsByGroup, gName);
-
+ 
 % -------- pass 1: draft (invisible) to measure each group's natural y-range --------
 sharedYLim = [];
 if opt.matchYLim
@@ -110,12 +120,12 @@ if opt.matchYLim
     sharedYLim = [min(ylAll(:,1)), max(ylAll(:,2))];
     h.sharedYLim = sharedYLim;
 end
-
+ 
 % -------- pass 2: final plots, one per group --------
 for gi = 1:numel(validGroups)
     gName = validGroups{gi};
     nA = nAfun(gName);
-
+ 
     plotArgs = { ...
         'plotStyle', opt.plotStyle, ...
         'includeOffset', opt.includeOffset, ...
@@ -123,7 +133,7 @@ for gi = 1:numel(validGroups)
         'figureWidthFactor', opt.figureWidthFactor, ...
         'visible', opt.visible, ...
         'header', gName, ...
-        'title', sprintf('%s learners (n=%d): motif %d tone \\beta', gName, nA, motifId), ...
+        'title', sprintf('%s learners (n=%d): motif %d tone beta', gName, nA, motifId), ...
         'figSaveDir', figSaveDir, ...
         'figSaveKeyword', strjoin(strings_nonempty_({figSaveKeyword, "byGroup"}), "_"), ...
         'saveMotifId', motifId ...
@@ -131,13 +141,22 @@ for gi = 1:numel(validGroups)
     if ~isempty(sharedYLim)
         plotArgs = [plotArgs, {'yLim', sharedYLim}]; %#ok<AGROW>
     end
-
+ 
     h.byGroup.(gName) = plot_beta_timeBinPaired(synthBetaByGroup.(gName), synthNames, 1, plotArgs{:});
+ 
+    % Override the y-axis label: plot_beta_timeBinPaired labels using the
+    % column index passed in (always 1 here, since synthBetaByGroup.(gName)
+    % has a single synthetic column), which would otherwise mislabel every
+    % panel as "motif 1" regardless of the real motifId. Relabel using the
+    % actual motifId instead.
+    if isfield(h.byGroup.(gName), 'ax') && isgraphics(h.byGroup.(gName).ax)
+        ylabel(h.byGroup.(gName).ax, sprintf('\\beta (motif %d)', motifId));
+    end
 end
-
+ 
 end % function
-
-
+ 
+ 
 % ===== helper: safe struct field lookup, default 0 =====
 function v = getfield_or_zero_(s, fld)
 if isfield(s, fld)
@@ -146,8 +165,8 @@ else
     v = 0;
 end
 end
-
-
+ 
+ 
 % ===== helper: drop empty strings before joining filename parts =====
 function out = strings_nonempty_(parts)
 parts = string(parts);
