@@ -22,8 +22,7 @@ if ~ismember(p.Results.imageToUse, {'ome_stack', 'combinedStack', 'dff_combined'
 end
 
 %% whereabouts
-match_header = regexp(filePath, 'm\d{1,4}_\d{6}', 'match');
-header = match_header{1};
+header = extract_date_animalID_header(filePath); 
 
 fileBeh = GrabFiles_sort_trials(['tbytDat_parseGng' ...
     ''], 0, {fullfile(filePath, 'Matfiles')});

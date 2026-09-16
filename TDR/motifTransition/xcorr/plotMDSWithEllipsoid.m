@@ -11,6 +11,43 @@ function h = plotMDSWithEllipsoid(Y, sessInfo, cmap, ell, varargin)
 %              [2]     -> plot in 1D using MDS dimension 2 (x-axis only)
 %              [1 3 4] -> plot in 3D using dims 1,3,4 (if available)
 %
+% Ellipsoid size (NEW -- plot-time override, mutually exclusive)
+%   'confLevel' : scalar in (0,1). Chi-square confidence-region sizing
+%                 (same math as before): scale = sqrt(chi2inv(confLevel,3)).
+%                 This is NOT simply "N standard deviations" -- e.g. the
+%                 default (falls back to ell.confLevel, or 0.95) gives
+%                 scale ~= 2.795, not 2, since it's the multivariate
+%                 radius enclosing that fraction of a 3D Gaussian's mass.
+%   'nStd'      : scalar > 0. DIRECT per-principal-axis standard-deviation
+%                 multiplier: radius along principal axis k =
+%                 nStd * sqrt(eigenvalue_k). Since eig(Sigma)'s
+%                 eigenvalues ARE the variance along each principal
+%                 direction, nStd=2 really does mean "2 SD along each
+%                 axis" in the ordinary sense -- no chi-square involved.
+%                 Specify at most one of 'confLevel'/'nStd'; if neither is
+%                 given, behavior is unchanged from before (falls back to
+%                 ell.confLevel, else 0.95).
+%
+% Axis tightening (NEW)
+%   'axisPadFrac' : nonnegative scalar, default 0.06 (6%). Axis limits are
+%                   set to the tight bounding box of everything actually
+%                   drawn -- the plotted points AND (when a 3D ellipsoid
+%                   is drawn) the ellipsoid surface mesh and its center
+%                   marker, since the ellipsoid can extend beyond the
+%                   point cloud in some directions -- then padded by this
+%                   fraction of each dimension's range. Set to 0 for the
+%                   mathematically tightest possible box (points/
+%                   ellipsoid edges may then sit exactly on the axis
+%                   boundary, which can visually clip a marker's outer
+%                   edge since marker radii are drawn in fixed POINTS,
+%                   not data units -- the small default pad exists
+%                   specifically to avoid that). Applies to the 1D, 2D,
+%                   and 3D cases alike; skipped only if the plotted
+%                   subspace has more than 3 dimensions (dims not
+%                   provided and size(Y,2)>3), since neither this
+%                   function's own ellipsoid logic nor plot3mds's
+%                   behavior in >3D is otherwise handled here.
+%
 % Figure saving
 %   'figSaveDir' : base directory for saving figures (default below)
 %   'printFig'   : true/false, whether to save figure (default false)
@@ -38,8 +75,11 @@ p.KeepUnmatched = true; % forward anything unknown to plot3mds
 % subspace dims
 p.addParameter('dims', [], @(v) isempty(v) || (isnumeric(v) && isvector(v) && all(v==round(v)) && all(v>=1)));
 
-% view control (NEW)
+% view control
 p.addParameter('view', [], @(v) isempty(v) || (isnumeric(v) && numel(v)==2));
+
+% NEW: axis tightening
+p.addParameter('axisPadFrac', 0.06, @(x) isnumeric(x) && isscalar(x) && x>=0);
 
 % ellipsoid overlay options
 p.addParameter('ellAlpha', 0.12, @(v)isnumeric(v)&&isscalar(v)&&v>=0&&v<=1);
@@ -50,12 +90,18 @@ p.addParameter('ellColor', [0 0 0], @(v)isnumeric(v)&&numel(v)==3);
 p.addParameter('highlightInside', true, @(v)islogical(v)||ismember(v,[0 1]));
 p.addParameter('insideEdgeColor', 'k'); % can be 'k' or [0 0 0], etc.
 
+% NEW: ellipsoid SIZE overrides (mutually exclusive; see full explanation
+% in the ellipsoid-sizing block below). If neither is given, behavior is
+% unchanged from before: falls back to ell.confLevel, or 0.95 if absent.
+p.addParameter('confLevel', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x>0 && x<1));
+p.addParameter('nStd', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x>0));
+
 % figure saving
 p.addParameter('figSaveDir', compatiblepath("Z:\Rodent Data\dualImaging_parkj\collectFigure\motifTDR\xcorr_mds"), ...
     @(s) ischar(s) || isstring(s));
 p.addParameter('printFig', false, @(x)islogical(x)&&isscalar(x));
 
-% NEW: robust tag for saving (fixes inputname fragility)
+% robust tag for saving (fixes inputname fragility)
 p.addParameter('trialTag', "", @(s)ischar(s) || isstring(s));
 
 p.parse(varargin{:});
@@ -104,7 +150,7 @@ h.meta = struct();
 h.meta.dims = dims;
 h.meta.Ysub = Ysub;
 
-% -------------------- 1D/2D: no ellipsoid overlay; return --------------------
+% -------------------- 1D/2D: no ellipsoid overlay; tighten + return --------------------
 if dim ~= 3
     % Optional: label axes by chosen dims (helps interpretation)
     if ~isempty(dims)
@@ -118,6 +164,19 @@ if dim ~= 3
         catch
         end
     end
+
+    % NEW: tight axis limits from the plotted points only (no ellipsoid
+    % in 1D/2D). Only meaningful for dim==1 or dim==2 -- silently skipped
+    % for dim>=4 (neither this function nor the caller has a defined
+    % notion of "tight" for an unplotted 4th+ dimension here).
+    if dim == 1 || dim == 2
+        lims = local_tightAxisLimits({Ysub}, opt.axisPadFrac);
+        xlim(ax, lims(:,1)');
+        if dim == 2
+            ylim(ax, lims(:,2)');
+        end
+    end
+
     hold(ax, 'off');
 
     % save (also for 1D/2D)
@@ -129,6 +188,13 @@ end
 if isempty(ell) || ~isfield(ell,'mu') || ~isfield(ell,'Sigma')
     warning('plotMDSWithEllipsoid:MissingEll', ...
         'ell must contain fields mu and Sigma for 3D ellipsoid overlay. Skipping ellipsoid.');
+
+    % NEW: still tighten using the points alone (no ellipsoid drawn here).
+    lims = local_tightAxisLimits({Ysub}, opt.axisPadFrac);
+    xlim(ax, lims(:,1)');
+    ylim(ax, lims(:,2)');
+    zlim(ax, lims(:,3)');
+
     hold(ax, 'off');
 
     % save even if ellipsoid skipped
@@ -154,13 +220,37 @@ else
     Sigma = SigFull(1:3,1:3);
 end
 
-% confidence scaling
-confLevel = 0.95;
-if isfield(ell,'confLevel') && ~isempty(ell.confLevel)
-    confLevel = ell.confLevel;
+% -------------------- ellipsoid size: confLevel (chi-square region) vs
+% nStd (literal per-principal-axis standard-deviation multiplier) --------
+% 'nStd' and 'confLevel' are mutually exclusive: nStd gives radius_k =
+% nStd * sqrt(eigenvalue_k) along each principal axis directly (no
+% chi-square involved -- since eig(Sigma) IS the variance along each
+% principal direction, this is exactly "N standard deviations" in the
+% ordinary univariate sense, just applied per-axis in the eigenbasis).
+% confLevel keeps the previous chi2inv-based behavior (a genuine
+% multivariate confidence region, NOT simply "N std" -- e.g. the default
+% confLevel=0.95 corresponds to sqrt(chi2inv(0.95,3)) ~= 2.795, not 2).
+if ~isempty(opt.nStd) && ~isempty(opt.confLevel)
+    error('plotMDSWithEllipsoid:AmbiguousEllipsoidSize', ...
+        'Specify at most one of ''confLevel'' or ''nStd'', not both.');
 end
-thr   = chi2inv(confLevel, 3);
-scale = sqrt(thr);
+
+if ~isempty(opt.nStd)
+    scale = opt.nStd;
+elseif ~isempty(opt.confLevel)
+    thr   = chi2inv(opt.confLevel, 3);
+    scale = sqrt(thr);
+else
+    % Unchanged fallback: ell.confLevel if present, else 0.95.
+    confLevel = 0.95;
+    if isfield(ell,'confLevel') && ~isempty(ell.confLevel)
+        confLevel = ell.confLevel;
+    end
+    thr   = chi2inv(confLevel, 3);
+    scale = sqrt(thr);
+end
+
+thr = scale^2;   % squared-Mahalanobis cutoff, consistent regardless of how scale was derived above -- used below for the inside-ellipsoid membership test
 
 % regularize covariance defensively
 Sigma = (Sigma + Sigma')/2;
@@ -250,6 +340,17 @@ if ~isempty(dims)
     zlabel(ax, sprintf('MDS%d', dims(3)));
 end
 
+% NEW: tight axis limits bounding BOTH the points AND the ellipsoid mesh
+% (+ its center marker) -- the ellipsoid can extend beyond the point
+% cloud in some directions (e.g. a late-session ellipsoid fit from few
+% points, or a session that lands well inside/outside it), so bounding
+% points alone could still clip the sphere surface.
+ellPts = [Ex(:), Ey(:), Ez(:)];
+lims = local_tightAxisLimits({Ysub, ellPts, mu}, opt.axisPadFrac);
+xlim(ax, lims(:,1)');
+ylim(ax, lims(:,2)');
+zlim(ax, lims(:,3)');
+
 hold(ax, 'off');
 
 % save
@@ -273,6 +374,20 @@ R = chol(Sigma);      % Sigma = R'*R
 Z = X / R;            % Sx3
 md2 = sum(Z.^2, 2);
 inside = (md2 <= thr);
+end
+
+% NEW: tight axis limits across one or more point sets (each an Sx1/Sx2/Sx3
+% matrix, all sharing the same number of columns), with fractional padding.
+function lims = local_tightAxisLimits(ptSets, padFrac)
+allPts = cat(1, ptSets{:});
+loRaw = min(allPts, [], 1);
+hiRaw = max(allPts, [], 1);
+
+rng = hiRaw - loRaw;
+rng(rng == 0) = 1;   % guard against a degenerate (zero-range) dimension
+
+pad  = padFrac .* rng;
+lims = [loRaw - pad; hiRaw + pad];   % 2 x d: row1 = lower, row2 = upper
 end
 
 function mouseId = local_inferMouseId(sessInfo)

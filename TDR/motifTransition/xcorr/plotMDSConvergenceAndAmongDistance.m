@@ -3,10 +3,21 @@ function h = plotMDSConvergenceAndAmongDistance(Y, sessInfo, ell, cmap, mIdC, va
 %   Plot per-mouse convergence to a reference ellipsoid center (Mahalanobis or Euclidean),
 %   with optional "among-mice" dispersion at each (aligned) session index.
 %
+%   NEW: also returns h.convergenceTable, a tidy table (one row per
+%   session, ALL mice in sessInfo -- NOT restricted by 'selectMice') with
+%   columns mouseId, sessWithin, sessFromEnd, xAligned, distToRef,
+%   insideRef. sessFromEnd = 0 for that mouse's OWN LAST session, 1 for
+%   its second-to-last, etc. -- this is the natural key for "final N
+%   sessions" analyses (e.g. a repeated-measures ANOVA over each animal's
+%   last N sessions) regardless of which 'alignment' option was used for
+%   plotting. See runConvergenceRMANOVA_fastSlow.m, which consumes this
+%   table directly.
+%
 %   IMPORTANT (color + ordering is now STRICTLY driven by mIdC):
 %     - mIdC is REQUIRED and defines the global mouse ordering.
 %     - cmap is interpreted in the SAME row order as mIdC.
-%     - selectMice only subsets AFTER mIdC ordering (stable).
+%     - selectMice only subsets AFTER mIdC ordering (stable) -- and only
+%       affects WHAT GETS PLOTTED, not h.convergenceTable (see above).
 %
 % INPUTS
 %   Y        : [S x dim] MDS coordinates
@@ -29,6 +40,13 @@ function h = plotMDSConvergenceAndAmongDistance(Y, sessInfo, ell, cmap, mIdC, va
 %   'amongMode'       : 'overlay' (default) or 'only'
 %
 %   'refMode'         : 'mahal' (default) or 'euclidean'
+%   'negativeDistance' : true/false (default: false). If true, sign-flips
+%                        distToRef (both the plotted values AND
+%                        h.convergenceTable.distToRef) -- e.g. for
+%                        plotting/framing convergence as a "negative
+%                        distance" that increases toward the reference.
+%                        Does NOT affect the among-mice dispersion values
+%                        (amongY), which are a separate quantity.
 %
 %   'highlightInside' : true/false (default: true)
 %   'confLevel'       : chi2 confidence level (default: 0.95)
@@ -56,6 +74,7 @@ function h = plotMDSConvergenceAndAmongDistance(Y, sessInfo, ell, cmap, mIdC, va
 %   h.ax.convergence, h.ax.among
 %   h.lines.mouse, h.lines.among
 %   h.data (computed vectors, options, membership flags)
+%   h.convergenceTable (NEW -- see above)
 %   h.save (save info)
 
 % -------------------- parse options --------------------
@@ -73,6 +92,14 @@ p.addParameter('amongNormalize', 'points', @(s) ischar(s) || isstring(s));
 p.addParameter('amongMode', 'overlay', @(s) ischar(s) || isstring(s));
 
 p.addParameter('refMode', 'mahal', @(s) ischar(s) || isstring(s));
+
+% NEW: optionally sign-flip the plotted/returned distance-to-reference
+% values (distToRef only -- NOT amongY, which is a conceptually different
+% quantity). Purely a display/sign convention: F-tests and p-values in
+% downstream RM-ANOVA are unaffected by this (multiplying a response by
+% -1 doesn't change variance-ratio-based tests), but the SIGN of any
+% reported mean differences/contrasts will flip accordingly.
+p.addParameter('negativeDistance', false, @(x) islogical(x) && isscalar(x));
 
 % highlight options
 p.addParameter('highlightInside', true, @(x) islogical(x) && isscalar(x));
@@ -207,7 +234,12 @@ Sigma = Sig_full(dims, dims);
 Sigma = (Sigma + Sigma')/2 + 1e-10*eye(d);
 R_ell = local_cholStable(Sigma);
 
-% -------------------- build aligned x per session --------------------
+% -------------------- build aligned x per session (for the PLOTTED subset) --------------------
+% NOTE: this perMouseMax/maxFinal is scoped to mouseU (the plotted
+% subset) intentionally, matching the original design -- alignment is
+% relative to whatever's being displayed. A SEPARATE, full-population
+% version is computed below for h.convergenceTable's sessFromEnd, since
+% that must be well-defined for every mouse regardless of selectMice.
 maxFinal = 0;
 perMouseMax = zeros(numel(mouseU),1);
 for im = 1:numel(mouseU)
@@ -239,6 +271,10 @@ switch refMode
         distToRef = sqrt(sum(Z.^2, 2));
 end
 
+if opt.negativeDistance
+    distToRef = -distToRef;
+end
+
 % -------------------- inside-ellipsoid membership --------------------
 insideRef = false(S,1);
 if opt.highlightInside
@@ -248,6 +284,28 @@ if opt.highlightInside
     thr = chi2inv(opt.confLevel, d);
     insideRef = (md2 <= thr);
 end
+
+% -------------------- NEW: sessFromEnd + tidy convergenceTable --------------------
+% Computed over ALL mice present in sessInfo (mouseId), NOT restricted to
+% mouseU/selectMice -- so a downstream stats function can independently
+% pick its own fast/slow subset via groupDefs without needing this
+% function called twice or with selectMice={} to get "everyone."
+mouseAll_list = unique(mouseId, 'stable');
+perMouseMaxAll = zeros(numel(mouseAll_list),1);
+for im = 1:numel(mouseAll_list)
+    perMouseMaxAll(im) = max(sessWithin(mouseId == mouseAll_list(im)));
+end
+
+sessFromEnd = nan(S,1);
+for im = 1:numel(mouseAll_list)
+    idxAll = (mouseId == mouseAll_list(im));
+    sessFromEnd(idxAll) = perMouseMaxAll(im) - sessWithin(idxAll);
+end
+
+h = struct();  % initialize here so convergenceTable can be attached before figure/axes setup below
+h.convergenceTable = table( ...
+    mouseId, sessWithin, sessFromEnd, xAligned, distToRef, insideRef, ...
+    'VariableNames', {'mouseId','sessWithin','sessFromEnd','xAligned','distToRef','insideRef'});
 
 % -------------------- Mahalanobis setup for among-distance (optional) --------------------
 W_among = [];
@@ -345,7 +403,22 @@ if ~isempty(h.ax.convergence)
     end
 
     xlabel(axC, sprintf('sessWithin (%s aligned)', alignment));
-    ylabel(axC, sprintf('Distance to reference (%s)', refMode));
+    if opt.negativeDistance
+        ylabel(axC, sprintf('Distance to reference (%s, negated)', refMode));
+    else
+        ylabel(axC, sprintf('Distance to reference (%s)', refMode));
+    end
+    % FIX: was set(gca,'TickDir','out') -- gca was NOT axC here. nexttile
+    % (above) makes whichever tile it JUST created the "current axes",
+    % so by this point in execution gca still pointed at h.ax.among
+    % (created after h.ax.convergence, i.e. the RIGHT panel), even though
+    % we're plotting into axC via its explicit handle. Plotting into an
+    % axes via an explicit handle does NOT make it "current" -- only
+    % nexttile/subplot/axes() do that. Using axC directly sidesteps the
+    % whole issue and is what actually made the "right panel" version of
+    % this bug appear to "work" (gca happened to still equal axA there,
+    % by coincidence, not by design).
+    set(axC, 'TickDir', 'out')
 
     if strlength(string(opt.titleStr)) > 0
         title(axC, opt.titleStr, 'Interpreter','none');
@@ -424,6 +497,12 @@ if opt.plotAmong
             ylabel(axA, sprintf('Among dispersion (%s/%s)', amongMetric, amongNormalize));
         end
 
+        % FIX: same issue as above -- use axA explicitly. (The duplicate
+        % call that previously sat OUTSIDE this if-block, right after its
+        % 'end', has been removed entirely -- it was redundant with this
+        % one and equally reliant on gca happening to still equal axA.)
+        set(axA, 'TickDir', 'out')
+
         if opt.gridOn, grid(axA,'on'); end
         box(axA,'off');
 
@@ -439,6 +518,7 @@ h.data.mouseU_all    = mouseU_all;
 h.data.mouseU        = mouseU;
 h.data.mouseId       = mouseId;
 h.data.sessWithin    = sessWithin;
+h.data.sessFromEnd   = sessFromEnd;  % NEW -- full population, matches h.convergenceTable
 h.data.xAligned      = xAligned;
 h.data.dims          = dims;
 h.data.distToRef     = distToRef;
@@ -459,15 +539,7 @@ h.data.params.trialType      = trialType;
 % -------------------- NEW: saving --------------------
 h.save = struct('didSave', false, 'file', '', 'figSaveDir', '', 'base', '', 'trialType', '', 'dateStr', '');
 
-figSaveDir = strtrim(string(opt.figSaveDir));
-if strlength(figSaveDir) > 0
-    figSaveDir = string(figSaveDir); %#ok<NASGU>
-end
-
 if strlength(strtrim(string(opt.figSaveDir))) > 0
-    % user provided figSaveDir -> eligible for saving
-    % but only save if they explicitly requested by passing figSaveDir? (no printFig flag requested)
-    % We'll save whenever figSaveDir is non-empty (as requested) and figure exists.
     outDir = char(string(opt.figSaveDir));
     if ~exist(outDir, 'dir')
         mkdir(outDir);
@@ -476,8 +548,6 @@ if strlength(strtrim(string(opt.figSaveDir))) > 0
     base = char(string(opt.figureNameBase));
     dstr = datestr(now, 'mmddyy');
 
-    % requested full filename: plotMDSConvergenceAndAmongDistance_(trialType)_(date).pdf
-    % (use user's base unless you want exactly fixed string; you asked baseNameBase FYI)
     fnBase = sprintf('%s%s_%s', base, trialType, dstr);
     outFile = fullfile(outDir, [fnBase '.pdf']);
 

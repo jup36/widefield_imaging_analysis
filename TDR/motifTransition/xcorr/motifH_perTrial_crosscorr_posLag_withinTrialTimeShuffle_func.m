@@ -81,7 +81,8 @@ header      = extract_date_animalID_header(filePath);
 keyword_beh = '_alignedPupilOrofacial.mat';
 
 filePath_matfiles = cell2mat(GrabFiles_sort_trials('Matfiles', 0, {filePath}));
-filePath_H        = cell2mat(GrabFiles_sort_trials([header '*' fileKeyword], 0, {filePath_matfiles}));
+%filePath_H        = cell2mat(GrabFiles_sort_trials([header '*' fileKeyword], 0, {filePath_matfiles}));
+filePath_H        = cell2mat(find_keyword_containing_files(filePath_matfiles, fileKeyword, 'recursive', true));
 filePath_B        = cell2mat(GrabFiles_sort_trials([header '*' keyword_beh], 0, {filePath_matfiles}));
 
 load(filePath_H, 'tbytDat_hAligned');

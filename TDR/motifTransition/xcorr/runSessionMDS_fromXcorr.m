@@ -6,27 +6,41 @@ function [Y, stress, sessInfo, featMat, D, ell] = runSessionMDS_fromXcorr( ...
 %
 % INPUTS
 %   xcorrPosLagMatC : {nMice x maxSessions} cell array of KxK positive-lag
-%                     motif cross-correlograms (directional).
+%                     motif cross-correlograms (directional). Cells that
+%                     were all-NaN in the source data MUST already be
+%                     converted to [] by the caller (see header note 1) --
+%                     this function only skips truly empty cells.
 %   mIdC            : 1 x nMice cell array of mouse folder names or full paths.
 %   headerC         : {nMice x maxSessions} cell array of session headers.
 %   dim             : target MDS dimension (default = 3).
+%
+% NAME-VALUE (NEW)
+%   'doSmooth'   : true (default, UNCHANGED prior behavior) or false.
+%                  Controls whether per-mouse Gaussian smoothing across
+%                  sessions (smoothFeatMatByMouse) is applied to the raw
+%                  KxK-flattened feature vectors BEFORE pdist/mdscale.
+%                  IMPORTANT: this is NOT a cosmetic/plot-level smoothing
+%                  toggle -- smoothing happens on the features that feed
+%                  the session-by-session distance matrix D itself, so
+%                  doSmooth=false produces a genuinely DIFFERENT MDS
+%                  solve (different D, different stress, different Y),
+%                  not just a jagged-looking version of the same
+%                  trajectory. featMat (the returned, unsmoothed feature
+%                  matrix) is unaffected either way -- only what feeds
+%                  pdist/mdscale internally changes.
+%   'smoothSigma': 1.0 (default, unchanged). Only used when doSmooth=true.
 %
 % OUTPUTS
 %   Y        : [S x dim] MDS embedding (S = #sessions).
 %   stress   : MDS stress value.
 %   sessInfo : table with session metadata.
-%   featMat  : [S x D] directional features per session (Fisher-z xcorr).
-%   D        : [S x S] session distance matrix (1 - corr).
+%   featMat  : [S x D] directional features per session (Fisher-z xcorr),
+%              ALWAYS the raw/unsmoothed matrix regardless of doSmooth --
+%              this was already true before this edit (smoothFeatMatByMouse's
+%              output was never returned, only used internally for pdist).
+%   D        : [S x S] session distance matrix (1 - corr), computed from
+%              smoothed OR unsmoothed features depending on doSmooth.
 %   ell: struct with fields mu, Sigma, idxPts, confLevel, nFinalSess
-% NOTES
-%   • Each session's feature vector is constructed by:
-%         - Fisher z-transform of 30x30 directional matrix
-%         - dropping the diagonal
-%         - flattening all K*(K-1) directional entries
-%   • Distances = 1 - correlation between session feature vectors.
-%
-% EXAMPLE
-%   [Y, stress, sessInfo] = runSessionMDS_fromXcorr(xcorrPosLagMatC, mIdC, headerC, 3);
 
 if nargin < 4 || isempty(dim), dim = 3; end
 if nargin < 5, fastLearnerIdC = {}; end
@@ -34,21 +48,26 @@ if nargin < 5, fastLearnerIdC = {}; end
 p = inputParser;
 p.addParameter('nFinalSess', 3, @(x)isnumeric(x)&&isscalar(x)&&x>=1);
 p.addParameter('confLevel', 0.95, @(x)isnumeric(x)&&isscalar(x)&&x>0&&x<1);
-p.addParameter('robustCov', false, @(x)islogical(x)&&isscalar(x)); % optional
+p.addParameter('robustCov', false, @(x)islogical(x)&&isscalar(x));
+p.addParameter('doSmooth', true, @(x)islogical(x)&&isscalar(x));
+p.addParameter('smoothSigma', 1.0, @(x)isnumeric(x)&&isscalar(x)&&x>0);
 p.parse(varargin{:});
 opt = p.Results;
 
-% --- features + MDS (your existing code) ---
 [featMat, sessInfo] = buildSessionFeaturesFromXcorr_dir(xcorrPosLagMatC, mIdC, headerC);
-featMat_sm = smoothFeatMatByMouse(featMat, sessInfo, 1.0);
 
-D_vec = pdist(featMat_sm, 'correlation');
+if opt.doSmooth
+    featMat_forMDS = smoothFeatMatByMouse(featMat, sessInfo, opt.smoothSigma);
+else
+    featMat_forMDS = featMat;   % unsmoothed -- genuinely different D/Y below, not just a display choice
+end
+
+D_vec = pdist(featMat_forMDS, 'correlation');
 D     = squareform(D_vec);
 
 [Y, stress] = mdscale(D, dim, 'criterion','metricstress');
-fprintf('MDS stress (dim=%d): %.4f\n', dim, stress);
+fprintf('MDS stress (dim=%d, doSmooth=%d): %.4f\n', dim, opt.doSmooth, stress);
 
-% --- ellipsoid over last-N sessions for fast learners ---
 ell = [];
 if ~isempty(fastLearnerIdC)
     ell = computeFastLearnerEllipsoid(Y, sessInfo, fastLearnerIdC, ...
